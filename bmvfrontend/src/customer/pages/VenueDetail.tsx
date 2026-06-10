@@ -1,0 +1,629 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
+import Header from "../components/Header";
+import Footer from "../components/Footer";
+import { MOCK_VENUES, Venue } from "@/src/lib/mockData";
+import { getSession, toggleWishlist, getWishlist } from "@/src/lib/authStore";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  MapPin,
+  Users,
+  Star,
+  CheckCircle2,
+  Calendar as CalendarIcon,
+  Heart,
+  ChevronLeft,
+  ChevronRight,
+  Maximize2,
+  Plus,
+  Minus,
+  Info,
+  Clock,
+  ShieldCheck,
+  PartyPopper,
+  X
+} from "lucide-react";
+
+interface VenueDetailProps {
+  id: string;
+}
+
+export default function VenueDetail({ id }: VenueDetailProps) {
+  const router = useRouter();
+  const venue = MOCK_VENUES.find((v) => v.id === id);
+
+  // States
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [selectedSlot, setSelectedSlot] = useState<"Morning" | "Evening" | "Full Day">("Morning");
+  const [guestsCount, setGuestsCount] = useState(50);
+  const [wishlist, setWishlistState] = useState<string[]>([]);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [activePhotoIdx, setActivePhotoIdx] = useState(0);
+
+  useEffect(() => {
+    setWishlistState(getWishlist());
+  }, []);
+
+  if (!venue) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <div className="flex-grow flex flex-col items-center justify-center py-20 px-4">
+          <h2 className="font-serif font-bold text-3xl text-neutral-dark mb-4">Venue Not Found</h2>
+          <p className="text-neutral-muted mb-8">The venue you are looking for does not exist or has been removed.</p>
+          <Link href="/venues">
+            <Button className="bg-teal-primary text-white hover:bg-teal-hover">Back to Listings</Button>
+          </Link>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  const isStarred = wishlist.includes(venue.id);
+
+  const handleWishlistToggle = () => {
+    const updated = toggleWishlist(venue.id);
+    setWishlistState(updated);
+  };
+
+  // Pricing calculation
+  const getBasePrice = () => {
+    if (selectedSlot === "Full Day") return venue.pricePerDay;
+    return venue.pricePerSlot;
+  };
+
+  const basePrice = getBasePrice();
+  const gstTax = Math.round(basePrice * 0.18); // 18% GST
+  const serviceFee = Math.round(basePrice * 0.025); // 2.5% Service Fee
+  const totalPrice = basePrice + gstTax + serviceFee;
+
+  const handleBookNow = () => {
+    const session = getSession();
+    
+    // Save selection details to localStorage
+    const bookingParams = {
+      venueId: venue.id,
+      venueName: venue.name,
+      venueImage: venue.image,
+      date: selectedDate ? selectedDate.toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN"),
+      slot: selectedSlot,
+      guests: guestsCount,
+      totalPrice: totalPrice,
+    };
+    
+    localStorage.setItem("bmv_pending_booking", JSON.stringify(bookingParams));
+
+    if (!session) {
+      // Redirect to login with return path
+      router.push(`/login?returnUrl=${encodeURIComponent(`/booking/confirm`)}`);
+    } else {
+      router.push("/booking/confirm");
+    }
+  };
+
+  const handleOpenLightbox = (index: number) => {
+    setActivePhotoIdx(index);
+    setLightboxOpen(true);
+  };
+
+  const handleNextPhoto = () => {
+    setActivePhotoIdx((prev) => (prev + 1) % venue.images.length);
+  };
+
+  const handlePrevPhoto = () => {
+    setActivePhotoIdx((prev) => (prev - 1 + venue.images.length) % venue.images.length);
+  };
+
+  // Emoji dictionary for amenities
+  const amenityEmojis: Record<string, string> = {
+    Parking: "🅿",
+    AC: "❄",
+    Catering: "🍽",
+    "AV Equipment": "🔊",
+    Valet: "🚗",
+    WiFi: "📶",
+    Decoration: "✨"
+  };
+
+  return (
+    <div className="flex flex-col min-h-screen bg-[#FAFAF8]">
+      <Header />
+
+      <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
+        
+        {/* Back Link */}
+        <div className="mb-4">
+          <Link href="/venues" className="inline-flex items-center gap-1 text-xs font-semibold text-neutral-muted hover:text-teal-primary">
+            <ChevronLeft className="h-4 w-4" /> Back to Venues
+          </Link>
+        </div>
+
+        {/* IMAGE GALLERY GRID */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-3 rounded-2xl overflow-hidden shadow-md bg-white p-2 border border-neutral-light mb-8">
+          
+          {/* Main Hero Photo */}
+          <div className="md:col-span-2 relative h-[320px] md:h-[420px] bg-neutral-light group cursor-pointer" onClick={() => handleOpenLightbox(0)}>
+            <Image
+              src={venue.images[0] || venue.image}
+              alt={`${venue.name} Main View`}
+              fill
+              className="object-cover group-hover:brightness-95 transition-all"
+            />
+            <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-all" />
+            <div className="absolute bottom-4 left-4 bg-black/60 text-white text-xs py-1.5 px-3 rounded-lg flex items-center gap-1 backdrop-blur-xs font-semibold border border-white/10">
+              <Maximize2 className="h-3.5 w-3.5" /> Tap to expand
+            </div>
+          </div>
+
+          {/* 2x2 Thumbnail Grid (hidden on mobile, shown as a column of 2 or grid on tablet/desktop) */}
+          <div className="hidden md:grid grid-cols-2 gap-2 h-[420px]">
+            {venue.images.slice(1, 5).map((img, idx) => (
+              <div
+                key={idx}
+                className="relative cursor-pointer overflow-hidden group bg-neutral-light"
+                onClick={() => handleOpenLightbox(idx + 1)}
+              >
+                <Image
+                  src={img}
+                  alt={`${venue.name} Detail ${idx + 1}`}
+                  fill
+                  className="object-cover group-hover:scale-103 transition-transform duration-300 group-hover:brightness-90"
+                />
+                <div className="absolute inset-0 bg-black/5 group-hover:bg-black/15 transition-all" />
+                
+                {/* Overlay on last item to show remaining counts if there are more */}
+                {idx === 3 && venue.images.length > 5 && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-lg">
+                    +{venue.images.length - 5} Photos
+                  </div>
+                )}
+              </div>
+            ))}
+            {/* Fallback if less than 5 images */}
+            {Array.from({ length: Math.max(0, 4 - venue.images.slice(1, 5).length) }).map((_, i) => (
+              <div key={`fallback-${i}`} className="bg-neutral-light rounded-lg flex items-center justify-center text-neutral-muted">
+                <CalendarIcon className="h-6 w-6 opacity-30" />
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* DETAILS & STICKY BOOKING PANEL CONTAINER */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+          
+          {/* Left Side: Venue Details */}
+          <div className="lg:col-span-2 space-y-6">
+            
+            {/* Header info */}
+            <div className="bg-white border border-neutral-light rounded-2xl p-6 shadow-sm">
+              <div className="flex flex-wrap gap-2 mb-3">
+                <Badge className="bg-teal-primary text-white border-0 py-0.5 px-2.5 text-xs font-semibold">
+                  {venue.type}
+                </Badge>
+                {venue.verified && (
+                  <Badge variant="outline" className="border-teal-primary/30 text-teal-primary bg-teal-light py-0.5 px-2.5 text-xs font-semibold">
+                    Verified Venue
+                  </Badge>
+                )}
+                <button
+                  onClick={handleWishlistToggle}
+                  className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-neutral-muted hover:text-red-500 transition-colors"
+                >
+                  <Heart className={`h-4 w-4 ${isStarred ? "fill-red-500 text-red-500" : ""}`} />
+                  {isStarred ? "Saved to Wishlist" : "Save to Wishlist"}
+                </button>
+              </div>
+
+              <h1 className="font-serif text-3xl sm:text-4xl font-bold text-neutral-dark mb-2 leading-tight">
+                {venue.name}
+              </h1>
+
+              <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-sm text-neutral-muted mb-4">
+                <p className="flex items-center gap-1">
+                  <MapPin className="h-4 w-4 text-teal-primary" /> {venue.location}
+                </p>
+                <div className="hidden sm:block h-3.5 w-px bg-neutral-light" />
+                <div className="flex items-center gap-1">
+                  <Star className="h-4 w-4 fill-amber-cta text-amber-cta" />
+                  <span className="font-bold text-neutral-dark">{venue.rating.toFixed(1)}</span>
+                  <span>({venue.reviewsCount} reviews)</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-4 border-t border-neutral-light">
+                <div className="text-center sm:text-left bg-neutral-light/40 p-3 rounded-xl">
+                  <span className="text-[10px] uppercase font-bold text-neutral-muted block">Capacity</span>
+                  <span className="text-sm font-bold text-neutral-dark">{venue.capacity} guests max</span>
+                </div>
+                <div className="text-center sm:text-left bg-neutral-light/40 p-3 rounded-xl">
+                  <span className="text-[10px] uppercase font-bold text-neutral-muted block">Price Slot</span>
+                  <span className="text-sm font-bold text-teal-primary">₹{venue.pricePerSlot.toLocaleString("en-IN")}</span>
+                </div>
+                <div className="text-center sm:text-left bg-neutral-light/40 p-3 rounded-xl">
+                  <span className="text-[10px] uppercase font-bold text-neutral-muted block">Price Day</span>
+                  <span className="text-sm font-bold text-teal-primary">₹{venue.pricePerDay.toLocaleString("en-IN")}</span>
+                </div>
+                <div className="text-center sm:text-left bg-neutral-light/40 p-3 rounded-xl">
+                  <span className="text-[10px] uppercase font-bold text-neutral-muted block">City</span>
+                  <span className="text-sm font-bold text-neutral-dark">{venue.city}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Tab panel Overview | Amenities | Policies */}
+            <Tabs defaultValue="overview" className="w-full bg-white border border-neutral-light rounded-2xl p-6 shadow-sm">
+              <TabsList className="bg-neutral-light border-0 mb-6 flex">
+                <TabsTrigger value="overview" className="flex-grow py-2">Overview</TabsTrigger>
+                <TabsTrigger value="amenities" className="flex-grow py-2">Amenities</TabsTrigger>
+                <TabsTrigger value="policies" className="flex-grow py-2">Policies</TabsTrigger>
+              </TabsList>
+              
+              {/* Overview panel */}
+              <TabsContent value="overview" className="space-y-4">
+                <h3 className="font-serif font-bold text-xl text-neutral-dark">About this Venue</h3>
+                <p className="text-sm text-neutral-muted leading-relaxed font-sans font-light whitespace-pre-line">
+                  {venue.description}
+                </p>
+                <div className="pt-4 border-t border-neutral-light">
+                  <h4 className="text-sm font-semibold text-neutral-dark mb-2">Suitable Occasions</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {venue.occasions.map((occ) => (
+                      <span key={occ} className="text-xs font-semibold bg-teal-light text-teal-primary py-1 px-3 rounded-full flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> {occ}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </TabsContent>
+              
+              {/* Amenities Panel */}
+              <TabsContent value="amenities" className="space-y-4">
+                <h3 className="font-serif font-bold text-xl text-neutral-dark">Available Amenities</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {venue.amenities.map((amenity) => (
+                    <div key={amenity} className="flex items-center gap-3 p-3 border border-neutral-light rounded-xl hover:border-teal-primary/30 hover:bg-teal-light/20 transition-all">
+                      <span className="text-xl" role="img" aria-label={amenity}>
+                        {amenityEmojis[amenity] || "🔹"}
+                      </span>
+                      <span className="text-sm font-semibold text-neutral-dark">{amenity}</span>
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+              
+              {/* Policies Panel */}
+              <TabsContent value="policies" className="space-y-4">
+                <h3 className="font-serif font-bold text-xl text-neutral-dark">Venue Policies & Guidelines</h3>
+                <div className="space-y-3.5">
+                  <div className="flex items-start gap-3">
+                    <div className="h-6 w-6 shrink-0 rounded-full bg-amber-light flex items-center justify-center text-amber-cta mt-0.5">
+                      <Clock className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-neutral-dark">Booking Slot Times</h4>
+                      <p className="text-xs text-neutral-muted">Morning slots: 8:00 AM – 3:00 PM. Evening slots: 4:00 PM – 11:00 PM. Full day: 8:00 AM – 11:00 PM.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="h-6 w-6 shrink-0 rounded-full bg-amber-light flex items-center justify-center text-amber-cta mt-0.5">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-neutral-dark">Cancellation Policy</h4>
+                      <p className="text-xs text-neutral-muted">Free cancellation up to 15 days before the event. 50% cancellation fee between 7-14 days. Non-refundable within 7 days of the booking.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="h-6 w-6 shrink-0 rounded-full bg-amber-light flex items-center justify-center text-amber-cta mt-0.5">
+                      <PartyPopper className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-neutral-dark">Catering & External Vendors</h4>
+                      <p className="text-xs text-neutral-muted">In-house catering and decoration services are optional. External caterers and decorators are allowed with a minor vendor surcharge fee.</p>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {/* Right Side: Desktop Sticky Booking Panel */}
+          <div className="hidden lg:block">
+            <Card className="sticky top-20 border border-neutral-light shadow-md bg-white rounded-2xl overflow-hidden">
+              <CardContent className="p-6 space-y-5">
+                <div className="flex justify-between items-baseline">
+                  <span className="text-sm font-bold text-neutral-dark">Booking Rate</span>
+                  <div className="text-right">
+                    <span className="text-xl font-bold font-serif text-teal-primary">₹{basePrice.toLocaleString("en-IN")}</span>
+                    <span className="text-xs text-neutral-muted block">/{selectedSlot === "Full Day" ? "day" : "slot"}</span>
+                  </div>
+                </div>
+
+                <hr className="border-neutral-light" />
+
+                {/* Date Picker */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase font-bold text-neutral-muted">Select Date</label>
+                  <Popover>
+                    <PopoverTrigger className="w-full justify-between text-left font-normal border border-input rounded-xl h-10 px-3 py-1 flex items-center bg-white cursor-pointer hover:bg-neutral-light transition-all">
+                      <span className="flex items-center gap-2 text-sm font-semibold text-neutral-dark">
+                        <CalendarIcon className="h-4 w-4 text-teal-primary" />
+                        {selectedDate ? selectedDate.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "Pick Date"}
+                      </span>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 bg-white shadow-xl border border-border" align="end">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        className="bg-white border-0"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Slot Selector */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase font-bold text-neutral-muted">Select Slot</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {["Morning", "Evening", "Full Day"].map((slotOption) => (
+                      <button
+                        key={slotOption}
+                        onClick={() => setSelectedSlot(slotOption as any)}
+                        className={`py-2 px-1 text-xs font-semibold rounded-lg border text-center transition-all ${
+                          selectedSlot === slotOption
+                            ? "bg-teal-primary text-white border-teal-primary shadow-xs"
+                            : "bg-white text-neutral-dark border-input hover:bg-neutral-light"
+                        }`}
+                      >
+                        {slotOption}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Guest Count Stepper */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase font-bold text-neutral-muted">Expected Guests</label>
+                  <div className="flex items-center justify-between border border-input rounded-xl px-3 py-1 bg-white">
+                    <button
+                      onClick={() => setGuestsCount((prev) => Math.max(10, prev - 10))}
+                      className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-neutral-light text-neutral-dark"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <span className="text-sm font-bold text-neutral-dark">{guestsCount} guests</span>
+                    <button
+                      onClick={() => setGuestsCount((prev) => Math.min(venue.capacity, prev + 10))}
+                      className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-neutral-light text-neutral-dark"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Price Breakdown */}
+                <div className="space-y-2.5 pt-3 border-t border-neutral-light text-xs text-neutral-muted">
+                  <div className="flex justify-between">
+                    <span>Base rate ({selectedSlot})</span>
+                    <span className="font-semibold text-neutral-dark">₹{basePrice.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="flex items-center gap-1">GST (18% <Info className="h-3 w-3 text-neutral-muted" />)</span>
+                    <span className="font-semibold text-neutral-dark">₹{gstTax.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Service Fee (2.5%)</span>
+                    <span className="font-semibold text-neutral-dark">₹{serviceFee.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-bold text-neutral-dark pt-2.5 border-t border-neutral-light">
+                    <span>Estimated Total</span>
+                    <span className="text-teal-primary text-base">₹{totalPrice.toLocaleString("en-IN")}</span>
+                  </div>
+                </div>
+
+                {/* Booking Button */}
+                <Button
+                  onClick={handleBookNow}
+                  className="w-full bg-amber-cta text-white hover:bg-amber-hover py-3.5 h-auto text-sm font-bold shadow-md shadow-amber-cta/30 rounded-xl"
+                >
+                  Book Now
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* MOBILE STICKY BOTTOM PANEL (Fixed at bottom on mobile) */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-neutral-light px-4 py-3 flex items-center justify-between shadow-2xl">
+          <div>
+            <span className="text-[10px] text-neutral-muted font-bold uppercase leading-none block">Total Price</span>
+            <span className="text-base font-bold text-teal-primary font-sans">
+              ₹{totalPrice.toLocaleString("en-IN")}
+            </span>
+          </div>
+
+          <Sheet>
+            <SheetTrigger className="bg-amber-cta text-white hover:bg-amber-hover px-6 h-10 font-bold rounded-xl cursor-pointer flex items-center justify-center">
+              Configure & Book
+            </SheetTrigger>
+            <SheetContent side="bottom" className="bg-white rounded-t-3xl p-6 overflow-y-auto max-h-[85vh]">
+              <SheetHeader className="pb-4 border-b border-neutral-light flex flex-row justify-between items-center">
+                <SheetTitle className="font-serif font-bold text-lg text-neutral-dark">Reserve Venue</SheetTitle>
+              </SheetHeader>
+              
+              <div className="py-4 space-y-4">
+                {/* Date Picker */}
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-neutral-muted">Date</label>
+                  <Popover>
+                    <PopoverTrigger className="w-full justify-between text-left font-normal border border-input rounded-xl h-10 px-3 py-1 flex items-center bg-white cursor-pointer hover:bg-neutral-light transition-all">
+                      <span className="flex items-center gap-2 text-sm font-semibold text-neutral-dark">
+                        <CalendarIcon className="h-4 w-4 text-teal-primary" />
+                        {selectedDate ? selectedDate.toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "Pick Date"}
+                      </span>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 bg-white shadow-xl border border-border" align="center">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        className="bg-white border-0"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Slot Selector */}
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-neutral-muted">Slot</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {["Morning", "Evening", "Full Day"].map((slotOption) => (
+                      <button
+                        key={slotOption}
+                        onClick={() => setSelectedSlot(slotOption as any)}
+                        className={`py-2 px-1 text-xs font-semibold rounded-lg border text-center transition-all ${
+                          selectedSlot === slotOption
+                            ? "bg-teal-primary text-white border-teal-primary shadow-xs"
+                            : "bg-white text-neutral-dark border-input"
+                        }`}
+                      >
+                        {slotOption}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Guest Count Stepper */}
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-neutral-muted">Expected Guests</label>
+                  <div className="flex items-center justify-between border border-input rounded-xl px-3 py-1 bg-white">
+                    <button
+                      onClick={() => setGuestsCount((prev) => Math.max(10, prev - 10))}
+                      className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-neutral-light text-neutral-dark"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <span className="text-sm font-bold text-neutral-dark">{guestsCount} guests</span>
+                    <button
+                      onClick={() => setGuestsCount((prev) => Math.min(venue.capacity, prev + 10))}
+                      className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-neutral-light text-neutral-dark"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Price Breakdown */}
+                <div className="space-y-2 pt-3 border-t border-neutral-light text-xs text-neutral-muted">
+                  <div className="flex justify-between">
+                    <span>Base rate ({selectedSlot})</span>
+                    <span className="font-semibold text-neutral-dark">₹{basePrice.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>GST (18%)</span>
+                    <span className="font-semibold text-neutral-dark">₹{gstTax.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Service Fee (2.5%)</span>
+                    <span className="font-semibold text-neutral-dark">₹{serviceFee.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-bold text-neutral-dark pt-2 border-t border-neutral-light">
+                    <span>Total Estimate</span>
+                    <span className="text-teal-primary">₹{totalPrice.toLocaleString("en-IN")}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-neutral-light flex gap-3">
+                <Button onClick={handleBookNow} className="flex-1 bg-amber-cta text-white hover:bg-amber-hover rounded-xl py-3.5 h-auto text-sm font-bold shadow-md shadow-amber-cta/30">
+                  Book Now
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+
+        {/* LIGHTBOX MODAL */}
+        {lightboxOpen && (
+          <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xs flex flex-col justify-between p-4">
+            {/* Top Bar */}
+            <div className="flex justify-between items-center text-white p-2">
+              <span className="text-xs font-semibold">
+                Photo {activePhotoIdx + 1} of {venue.images.length}
+              </span>
+              <button
+                onClick={() => setLightboxOpen(false)}
+                className="h-9 w-9 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white border border-white/10"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Photo Slide Frame */}
+            <div className="flex-grow flex items-center justify-between relative max-w-5xl mx-auto w-full">
+              {/* Prev Button */}
+              <button
+                onClick={handlePrevPhoto}
+                className="absolute left-2 z-10 h-10 w-10 bg-black/55 hover:bg-black/85 rounded-full flex items-center justify-center text-white border border-white/10 focus:outline-none"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+
+              {/* Slide image */}
+              <div className="relative w-full h-[65vh] flex justify-center items-center">
+                <Image
+                  src={venue.images[activePhotoIdx]}
+                  alt={`${venue.name} Gallery Photo ${activePhotoIdx + 1}`}
+                  fill
+                  className="object-contain"
+                />
+              </div>
+
+              {/* Next Button */}
+              <button
+                onClick={handleNextPhoto}
+                className="absolute right-2 z-10 h-10 w-10 bg-black/55 hover:bg-black/85 rounded-full flex items-center justify-center text-white border border-white/10 focus:outline-none"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Thumbnail Bottom Bar */}
+            <div className="flex gap-2 justify-center py-4 overflow-x-auto max-w-xl mx-auto w-full">
+              {venue.images.map((img, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => setActivePhotoIdx(idx)}
+                  className={`relative h-12 w-16 shrink-0 rounded-md overflow-hidden cursor-pointer border-2 transition-all ${
+                    activePhotoIdx === idx ? "border-amber-cta opacity-100 scale-105" : "border-transparent opacity-50 hover:opacity-85"
+                  }`}
+                >
+                  <Image src={img} alt={`Gallery Thumb ${idx + 1}`} fill className="object-cover" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* Spacing for mobile fixed bottom bar */}
+      <div className="h-16 lg:hidden" />
+      
+      <Footer />
+    </div>
+  );
+}
