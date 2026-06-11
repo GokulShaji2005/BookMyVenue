@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { setSession } from "@/src/lib/authStore";
+import { apiFetch } from "@/src/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,11 +21,11 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    // Validation mock
+    // Validation
     if (!email.includes("@")) {
       setError("Please enter a valid email address.");
       return;
@@ -34,16 +35,34 @@ export default function Login() {
       return;
     }
 
-    // Set mock customer session
-    setSession({
-      name: email.split("@")[0].charAt(0).toUpperCase() + email.split("@")[0].slice(1),
-      email: email,
-      phone: "9876543210",
-      role: "customer"
-    });
+    try {
+      const data = await apiFetch<{
+        user: {
+          id: string;
+          name: string;
+          email: string;
+          phone: string;
+          role: string;
+          isProfileCompleted: boolean;
+        };
+      }>("/auth/login", {
+        method: "POST",
+        body: { email, password },
+      });
 
-    // Navigate to return URL or home
-    router.push(returnUrl);
+      // Set user session in UI store (secrets/tokens are secured in HttpOnly cookies)
+      setSession({
+        name: data.user.name,
+        email: data.user.email,
+        phone: data.user.phone,
+        role: (data.user.role === "venue_owner" ? "partner" : "customer") as "customer" | "partner",
+      });
+
+      // Navigate to return URL or home
+      router.push(returnUrl);
+    } catch (err: any) {
+      setError(err.message || "Failed to log in. Please try again.");
+    }
   };
 
   const handleGoogleLogin = () => {

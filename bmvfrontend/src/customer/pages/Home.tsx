@@ -35,7 +35,7 @@ import {
 
 export default function Home() {
   const router = useRouter();
-  
+
   // Search Form State
   const [location, setLocation] = useState("");
   const [showCities, setShowCities] = useState(false);
@@ -81,7 +81,7 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
-      
+
       <main className="flex-grow">
         {/* HERO SECTION */}
         <section className="relative w-full h-[620px] flex items-center justify-center bg-black overflow-hidden">
@@ -101,23 +101,15 @@ export default function Home() {
           <div className="relative z-10 w-full max-w-5xl mx-auto px-4 text-center text-white flex flex-col items-center">
             {/* Accent badge */}
             <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-teal-primary/20 border border-teal-primary/40 text-teal-light text-xs font-semibold uppercase tracking-wider mb-6 animate-fade-in">
-              <Sparkles className="h-3.5 w-3.5 text-amber-cta" /> Premium Venue Booking
+              <Sparkles className="h-3.5 w-3.5 text-amber-cta" />Venue Booking
             </div>
-            
-            <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight max-w-3xl leading-[1.1] mb-6 animate-slide-up">
-              Find the Perfect Venue for Every Occasion
-            </h1>
-            <p className="text-lg sm:text-xl text-neutral-light/90 max-w-xl mb-10 font-sans font-light">
-              Discover verified spaces, compare transparent pricing, and secure your booking in minutes.
-            </p>
-
             {/* UNIFIED SEARCH BAR */}
-            <form 
+            <form
               onSubmit={handleSearch}
               className="w-full max-w-4xl bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-white/20 text-neutral-dark grid grid-cols-1 md:grid-cols-4 gap-3 items-center"
             >
               {/* Location Input with suggestions */}
-              <div className="relative flex flex-col items-start px-2 py-1 border-b md:border-b-0 md:border-r border-neutral-light">
+              <div className="relative flex flex-col items-start px-1 py-1 border-b md:border-b-0 md:border-r border-neutral-light">
                 <span className="text-[10px] uppercase font-bold text-neutral-muted flex items-center gap-1">
                   <MapPin className="h-3 w-3 text-teal-primary" /> Location
                 </span>
@@ -132,7 +124,7 @@ export default function Home() {
                   onFocus={() => setShowCities(true)}
                   className="w-full bg-transparent border-0 outline-none text-sm font-semibold pt-1 focus:ring-0 placeholder:text-neutral-muted/70 placeholder:font-normal"
                 />
-                
+
                 {/* Auto-suggest dropdown */}
                 {showCities && (
                   <div className="absolute left-0 top-[110%] z-50 w-64 bg-white rounded-xl shadow-xl border border-border py-2 animate-fade-in max-h-60 overflow-y-auto">
@@ -199,8 +191,8 @@ export default function Home() {
 
               {/* Search CTA */}
               <div className="px-2">
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full bg-teal-primary hover:bg-teal-hover text-white h-12 rounded-xl flex items-center justify-center gap-2 font-medium shadow-md shadow-teal-primary/30"
                 >
                   <Search className="h-4 w-4" />
@@ -208,6 +200,14 @@ export default function Home() {
                 </Button>
               </div>
             </form>
+            <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight max-w-3xl leading-[1.1] mb-6 animate-slide-up">
+              Find the Perfect Venue for Every Occasion
+            </h1>
+            <p className="text-lg sm:text-xl text-neutral-light/90 max-w-xl mb-10 font-sans font-light">
+              Discover verified spaces, compare transparent pricing, and secure your booking in minutes.
+            </p>
+
+
           </div>
         </section>
 
@@ -224,7 +224,7 @@ export default function Home() {
                   <p className="text-xs text-neutral-muted">Verified & curated spaces</p>
                 </div>
               </div>
-              
+
               <div className="hidden sm:block h-8 w-px bg-neutral-dark" />
 
               <div className="flex items-center gap-3">
@@ -256,13 +256,13 @@ export default function Home() {
         <section className="w-full py-12 bg-[#FAFAF8]">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <h2 className="text-2xl font-serif font-bold text-neutral-dark mb-6">Explore by Space Type</h2>
-            
+
             {/* Scrollable container */}
             <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-teal-primary/10">
               {categories.map((cat, idx) => (
-                <Link 
-                  key={idx} 
-                  href={`/venues?type=${cat.type}`} 
+                <Link
+                  key={idx}
+                  href={`/venues?type=${cat.type}`}
                   className="flex-shrink-0 group flex flex-col items-center gap-2 cursor-pointer"
                 >
                   <div className="relative w-28 h-28 rounded-2xl overflow-hidden shadow-md border border-neutral-light transition-transform duration-300 group-hover:scale-105 group-hover:-translate-y-1">
@@ -300,8 +300,8 @@ export default function Home() {
               {featuredVenues.map((venue) => {
                 const isStarred = wishlist.includes(venue.id);
                 return (
-                  <div 
-                    key={venue.id} 
+                  <div
+                    key={venue.id}
                     className="group flex flex-col bg-background rounded-2xl border border-neutral-light overflow-hidden shadow-md transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
                   >
                     {/* Venue Image */}
@@ -312,14 +312,14 @@ export default function Home() {
                         fill
                         className="object-cover group-hover:scale-105 transition-transform duration-500"
                       />
-                      
+
                       {/* Badge Overlays */}
                       {venue.verified && (
                         <Badge className="absolute top-4 left-4 bg-teal-primary text-white text-[10px] font-semibold border-0 py-0.5 px-2.5">
                           Verified
                         </Badge>
                       )}
-                      
+
                       {/* Wishlist Heart */}
                       <button
                         onClick={(e) => handleWishlistToggle(e, venue.id)}
@@ -371,7 +371,7 @@ export default function Home() {
                 );
               })}
             </div>
-            
+
             <div className="mt-8 text-center sm:hidden">
               <Link href="/venues" className="inline-flex items-center gap-1 text-sm font-semibold text-teal-primary hover:underline">
                 View All Venues <ChevronRight className="h-4 w-4" />
@@ -385,7 +385,7 @@ export default function Home() {
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
             <p className="text-xs font-bold text-teal-primary uppercase tracking-wider mb-2">Simplicity First</p>
             <h2 className="text-3xl font-serif font-bold text-neutral-dark mb-12">How It Works</h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
               <div className="flex flex-col items-center p-6 bg-white rounded-2xl border border-neutral-light shadow-sm">
                 <div className="h-16 w-16 rounded-2xl bg-teal-light text-teal-primary flex items-center justify-center font-bold text-2xl mb-6 shadow-inner">

@@ -22,8 +22,17 @@ import {
   Sparkles,
   PartyPopper
 } from "lucide-react";
+import { sendOtp, verifyOtp, register } from "./route";
+import Home from "../customer/pages/Home";
+
+export interface VerifyOtpResponse {
+  verified: boolean;
+  phone: string;
+  phoneVerifiedToken: string;
+}
 
 export default function Register() {
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get("returnUrl") || "/";
@@ -42,12 +51,14 @@ export default function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+
   const [showPassword, setShowPassword] = useState(false);
 
   // Step 3: Personalization
   const [favOccasion, setFavOccasion] = useState("");
 
+  const [phoneToken, setPhoneToken] = useState<string | null>(null);
+  const role = "customer";
   // OTP resend timer
   useEffect(() => {
     let interval: any;
@@ -59,24 +70,39 @@ export default function Register() {
     return () => clearInterval(interval);
   }, [otpSent, timer]);
 
-  const handleSendOtp = (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    // setError("");
     if (phone.length < 10) {
       setError("Please enter a valid 10-digit mobile number.");
       return;
     }
-    setOtpSent(true);
-    setTimer(30);
-  };
 
-  const handleVerifyOtp = () => {
-    setError("");
-    // Accept any 6 digit, but instruct to use 123456
-    if (otpValue === "123456" || otpValue.length === 6) {
-      setStep(2);
-    } else {
-      setError("Incorrect OTP. Enter '123456' to pass.");
+    try {
+      await sendOtp(phone);
+      console.log(phone)
+      setOtpSent(true);
+      setTimer(30);
+    } catch (error) {
+      setError("Failed to send OTP. Please try again.");
+      console.error(error);
+    }
+  };
+  const handleVerifyOtp = async () => {
+    if (otpValue.length < 6) {
+      setError("Please enter a valid  6-digit Otp");
+      return;
+    }
+
+    try {
+      const response = await verifyOtp(phone, otpValue);
+      console.log(response);
+      setPhoneToken(response.phoneVerifiedToken);
+      setStep(2)
+    }
+    catch (error) {
+      setError("Failed to verify");
+      console.error(error);
     }
   };
 
@@ -86,7 +112,7 @@ export default function Register() {
     setError("");
   };
 
-  const handleBasicDetailsSubmit = (e: React.FormEvent) => {
+  const handleBasicDetailsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -98,49 +124,52 @@ export default function Register() {
       setError("Please enter a valid email address.");
       return;
     }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
       return;
     }
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+    if (!phoneToken) {
+      setError("Please verify OTP first");
       return;
     }
 
-    setStep(3);
+    console.log(name);
+    console.log(phone);
+    console.log(email);
+    console.log(password);
+    console.log(phoneToken);
+    console.log(role);
+    try {
+      await register(name, phone, email, password, phoneToken, role);
+
+      router.push('/Home');
+    }
+    catch (error) {
+      setError("Failed to register");
+      console.error(error);
+    }
+
+
   };
 
-  const handleCompleteRegistration = (skipped = false) => {
-    // Save customer session
-    setSession({
-      name: name,
-      email: email,
-      phone: phone,
-      role: "customer"
-    });
+  // const handleCompleteRegistration = (skipped = false) => {
+  //   // Save customer session
+  //   setSession({
+  //     name: name,
+  //     email: email,
+  //     phone: phone,
+  //     role: "customer"
+  //   });
 
-    // Success redirect
-    router.push(returnUrl);
-  };
+  //   // Success redirect
+  //   router.push(returnUrl);
+  // };
 
   // Step Progress values
-  const progressPercent = step === 1 ? 33 : step === 2 ? 66 : 100;
+  const progressPercent = step === 1 ? 50 : step === 2 ? 100 : 100;
 
   return (
     <div className="min-h-screen bg-[#FAFAF8] flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 relative">
-      
-      {/* Back button */}
-      {step > 1 && (
-        <button
-          onClick={() => {
-            setError("");
-            setStep((prev) => prev - 1);
-          }}
-          className="absolute top-8 left-8 text-sm font-semibold text-neutral-muted hover:text-teal-primary flex items-center gap-1 focus:outline-none"
-        >
-          <ChevronLeft className="h-4 w-4" /> Back to Step {step - 1}
-        </button>
-      )}
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md mb-6">
         <div className="text-center">
@@ -155,11 +184,11 @@ export default function Register() {
       </div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        
+
         {/* Progress Bar */}
         <div className="mb-4 px-2">
           <div className="flex justify-between text-[10px] font-bold text-neutral-muted uppercase mb-1.5">
-            <span>Step {step} of 3</span>
+            <span>Step {step} of 2</span>
             <span>{step === 1 ? "Verification" : step === 2 ? "Basic Info" : "Personalize"}</span>
           </div>
           <Progress value={progressPercent} className="h-1 bg-neutral-light">
@@ -169,7 +198,7 @@ export default function Register() {
 
         <Card className="border border-neutral-light shadow-xl bg-white rounded-2xl overflow-hidden">
           <CardContent className="p-6 md:p-8 space-y-5">
-            
+
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl p-3 text-xs flex gap-2 items-center">
                 <ShieldAlert className="h-4 w-4 shrink-0" />
@@ -203,7 +232,7 @@ export default function Register() {
                             maxLength={10}
                             value={phone}
                             onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-                            placeholder="9876543210"
+                            placeholder="**********"
                             className="pl-9 h-10 border-input rounded-xl bg-white"
                           />
                         </div>
@@ -217,7 +246,7 @@ export default function Register() {
                   <div className="space-y-5">
                     <div className="text-xs text-neutral-muted">
                       We've sent a 6-digit OTP to <strong className="text-neutral-dark">+91 {phone}</strong>.
-                      <p className="text-[10px] text-teal-primary mt-1 font-semibold">Demo Code: Enter 123456</p>
+
                     </div>
 
                     <div className="flex flex-col items-center gap-4 py-2">
@@ -310,7 +339,7 @@ export default function Register() {
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
+                {/* <div className="space-y-1.5">
                   <label className="text-xs font-bold text-neutral-muted uppercase">Confirm Password</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-muted">
@@ -325,7 +354,7 @@ export default function Register() {
                       className="pl-9 pr-9 h-10 border-input rounded-xl bg-white"
                     />
                   </div>
-                </div>
+                </div> */}
 
                 <Button type="submit" className="w-full bg-teal-primary hover:bg-teal-hover text-white py-3 h-auto text-sm font-bold shadow-md shadow-teal-primary/20 rounded-xl">
                   Create Account
@@ -333,60 +362,8 @@ export default function Register() {
               </form>
             )}
 
-            {/* STEP 3: PERSONALIZATION QUESTIONS */}
-            {step === 3 && (
-              <div className="space-y-6 text-center">
-                <div className="h-14 w-14 rounded-2xl bg-amber-light text-amber-cta flex items-center justify-center mx-auto mb-2 animate-bounce">
-                  <Sparkles className="h-7 w-7" />
-                </div>
-                
-                <div>
-                  <h3 className="font-serif font-bold text-lg text-neutral-dark">Almost Done!</h3>
-                  <p className="text-xs text-neutral-muted mt-1 leading-relaxed">
-                    Help us customize BookMyVenue to display locations and offers that matter most to you.
-                  </p>
-                </div>
 
-                <div className="text-left space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-neutral-dark uppercase block">What is your primary occasion interest?</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {["Wedding", "Corporate", "Birthday", "Social"].map((occ) => (
-                        <button
-                          key={occ}
-                          onClick={() => setFavOccasion(occ)}
-                          className={`p-3 text-xs font-bold rounded-xl border text-center transition-all flex flex-col items-center gap-1.5 justify-center ${
-                            favOccasion === occ
-                              ? "bg-teal-light text-teal-primary border-teal-primary shadow-xs"
-                              : "bg-white text-neutral-dark border-input hover:bg-neutral-light"
-                          }`}
-                        >
-                          <PartyPopper className={`h-4.5 w-4.5 ${favOccasion === occ ? "text-teal-primary" : "text-neutral-muted"}`} />
-                          {occ}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
 
-                <div className="flex gap-3 pt-4 border-t border-neutral-light">
-                  <button
-                    onClick={() => handleCompleteRegistration(true)}
-                    className="flex-1 border border-input hover:bg-neutral-light text-xs font-semibold py-3.5 rounded-xl text-neutral-dark"
-                  >
-                    Skip
-                  </button>
-                  <Button
-                    onClick={() => handleCompleteRegistration(false)}
-                    className="flex-1 bg-teal-primary text-white hover:bg-teal-hover py-3.5 h-auto text-xs font-bold rounded-xl"
-                  >
-                    Save & Finish
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Back to Login link */}
             {step < 3 && (
               <p className="text-center text-xs text-neutral-muted pt-2 border-t border-neutral-light">
                 Already have an account?{" "}
