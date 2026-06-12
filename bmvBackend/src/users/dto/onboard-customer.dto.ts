@@ -26,6 +26,7 @@ export class OnboardCustomerDto {
   @Length(1, 20)
   pincode: string;
 
+  @IsOptional()
   @IsString()
   @IsUrl({}, { message: 'googleLocationUrl must be a valid URL' })
   googleLocationUrl?: string;

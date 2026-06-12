@@ -5,6 +5,18 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Set global API prefix, excluding the root endpoint
+  app.setGlobalPrefix('api', { exclude: ['/'] });
+
+  // Enable CORS for frontend requests
+  const corsOrigin = process.env.CORS_ORIGIN;
+  app.enableCors({
+    origin: corsOrigin ? corsOrigin.split(',') : 'http://localhost:3000',
+    credentials: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type, Accept, Authorization',
+  });
+
   // Enforce DTO validation globally across all endpoints
   app.useGlobalPipes(
     new ValidationPipe({
