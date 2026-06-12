@@ -5,6 +5,7 @@ export interface UserSession {
   email: string;
   phone?: string;
   role: "customer" | "partner";
+  isProfileCompleted?: boolean;
 }
 
 export interface Booking {

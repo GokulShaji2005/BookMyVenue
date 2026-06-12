@@ -22,9 +22,7 @@ import {
   Sparkles,
   PartyPopper
 } from "lucide-react";
-import { sendOtp, verifyOtp, register } from "./route";
-import Home from "../customer/pages/Home";
-
+import { sendOtp, verifyOtp, register } from "../route"
 export interface VerifyOtpResponse {
   verified: boolean;
   phone: string;
@@ -133,16 +131,18 @@ export default function Register() {
       return;
     }
 
-    console.log(name);
-    console.log(phone);
-    console.log(email);
-    console.log(password);
-    console.log(phoneToken);
-    console.log(role);
     try {
       await register(name, phone, email, password, phoneToken, role);
 
-      router.push('/Home');
+      setSession({
+        name,
+        email,
+        phone,
+        role: "customer",
+        isProfileCompleted: false,
+      });
+
+      router.push('/customer/profile');
     }
     catch (error) {
       setError("Failed to register");

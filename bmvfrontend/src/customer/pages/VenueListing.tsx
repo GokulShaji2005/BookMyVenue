@@ -6,8 +6,10 @@ import Link from "next/link";
 import Image from "next/image";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { MOCK_VENUES, MOCK_CITIES, Venue } from "@/src/lib/mockData";
+import { MOCK_CITIES } from "@/src/lib/mockData";
 import { getWishlist, toggleWishlist } from "@/src/lib/authStore";
+import { PublicVenueResponseDto, VenueType } from "@/src/venues/types";
+import { fetchPublicVenues } from "@/src/venues/route";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -33,12 +35,50 @@ import {
   Calendar as CalendarIcon,
   Search,
   Map,
-  X
+  X,
+  ShieldAlert
 } from "lucide-react";
 
 export default function VenueListing() {
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  // Backend API states
+  const [venues, setVenues] = useState<PublicVenueResponseDto[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [apiError, setApiError] = useState("");
+  const limit = 10;
+
+
+
+  const formatVenueType = (type: VenueType): string => {
+    switch (type) {
+      case VenueType.WEDDING_HALL: return "Wedding Hall";
+      case VenueType.AUDITORIUM: return "Auditorium";
+      case VenueType.RESORT: return "Resort";
+      case VenueType.CONVENTION_CENTER: return "Convention Center";
+      case VenueType.CAFE: return "Cafe";
+      case VenueType.PARTY_HALL: return "Party Hall";
+      case VenueType.MEETUP_SPACE: return "Meetup Space";
+      case VenueType.MALL: return "Mall Space";
+      case VenueType.HOTEL: return "Hotel Hall";
+      default: return "Venue";
+    }
+  };
+
+  const getOccasionsForType = (type: VenueType): string[] => {
+    switch (type) {
+      case VenueType.WEDDING_HALL: return ["Wedding", "Social"];
+      case VenueType.AUDITORIUM: return ["Corporate", "Academic"];
+      case VenueType.RESORT: return ["Wedding", "Social"];
+      case VenueType.CONVENTION_CENTER: return ["Corporate", "Exhibition"];
+      case VenueType.CAFE: return ["Birthday", "Social"];
+      case VenueType.PARTY_HALL: return ["Birthday", "Social"];
+      case VenueType.MEETUP_SPACE: return ["Corporate", "Workshop"];
+      default: return ["Event"];
+    }
+  };
 
   // URL search params
   const paramLocation = searchParams.get("location") || "";
@@ -66,15 +106,13 @@ export default function VenueListing() {
   const [availableDate, setAvailableDate] = useState<Date | undefined>(
     paramDate ? new Date(paramDate) : undefined
   );
-  
+
   // Sort State
   const [sortBy, setSortBy] = useState("relevance");
 
-  // Load wishlist & simulate initial page load
+  // Load wishlist on mount
   useEffect(() => {
     setWishlistState(getWishlist());
-    const timer = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(timer);
   }, []);
 
   // Update filters if search parameters change
@@ -84,6 +122,42 @@ export default function VenueListing() {
     if (paramLocation) setSearchLocation(paramLocation);
     if (paramDate) setAvailableDate(new Date(paramDate));
   }, [paramType, paramOccasion, paramLocation, paramDate]);
+
+  // Load venues from backend REST API
+  const loadVenues = async () => {
+    setLoading(true);
+    setApiError("");
+    try {
+      const isPopularCity = MOCK_CITIES.some(c => c.toLowerCase() === searchLocation.toLowerCase());
+      const typeParam = selectedTypes[0] as VenueType | undefined;
+
+      const response = await fetchPublicVenues({
+        city: isPopularCity ? searchLocation : undefined,
+        search: !isPopularCity && searchLocation ? searchLocation : undefined,
+        venueType: typeParam,
+        maxCapacity: minCapacity > 10 ? minCapacity : undefined,
+        page,
+        limit,
+      });
+
+      setVenues(response.data);
+      setTotalCount(response.total);
+    } catch (err: any) {
+      setApiError(err.message || "Failed to fetch venues from server.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Re-load venues when parameters or page change
+  useEffect(() => {
+    loadVenues();
+  }, [searchLocation, selectedTypes, minCapacity, page]);
+
+  // Reset to first page when query filters are changed
+  useEffect(() => {
+    setPage(1);
+  }, [searchLocation, selectedTypes, minCapacity]);
 
   // Compute active filter count
   const getActiveFilterCount = () => {
@@ -109,13 +183,12 @@ export default function VenueListing() {
     setRatingFourPlus(false);
     setAvailableDate(undefined);
     setSearchLocation("");
+    setPage(1);
     router.push("/venues");
-    triggerSimulatedLoading();
   };
 
   const triggerSimulatedLoading = () => {
-    setLoading(true);
-    setTimeout(() => setLoading(false), 450);
+    loadVenues();
   };
 
   const handleTypeChange = (type: string, checked: boolean) => {
@@ -139,62 +212,16 @@ export default function VenueListing() {
     setWishlistState(updated);
   };
 
-  // Filter & Sort Logic
-  const filteredVenues = MOCK_VENUES.filter((venue) => {
-    // City / Location filter
-    if (searchLocation) {
-      const matchCity = venue.city.toLowerCase().includes(searchLocation.toLowerCase());
-      const matchLoc = venue.location.toLowerCase().includes(searchLocation.toLowerCase());
-      if (!matchCity && !matchLoc) return false;
-    }
-
-    // Type filter
-    if (selectedTypes.length > 0 && !selectedTypes.includes(venue.type)) {
-      return false;
-    }
-
-    // Occasion filter
-    if (selectedOccasion && !venue.occasions.includes(selectedOccasion as any)) {
-      return false;
-    }
-
-    // Price filter (dual slider)
-    if (venue.pricePerDay < priceRange[0] || venue.pricePerDay > priceRange[1]) {
-      return false;
-    }
-
-    // Capacity filter
-    if (venue.capacity < minCapacity) {
-      return false;
-    }
-
-    // Amenities filter
-    if (selectedAmenities.length > 0) {
-      const hasAll = selectedAmenities.every((amenity) => venue.amenities.includes(amenity));
-      if (!hasAll) return false;
-    }
-
-    // Rating filter
-    if (ratingFourPlus && venue.rating < 4.0) {
-      return false;
-    }
-
-    return true;
-  });
-
-  // Sort
-  const sortedVenues = [...filteredVenues].sort((a, b) => {
+  // Local sort on fetched page results
+  const sortedVenues = [...venues].sort((a, b) => {
     if (sortBy === "price-low") {
-      return a.pricePerDay - b.pricePerDay;
+      return a.startingPrice - b.startingPrice;
     }
     if (sortBy === "price-high") {
-      return b.pricePerDay - a.pricePerDay;
+      return b.startingPrice - a.startingPrice;
     }
-    if (sortBy === "rating") {
-      return b.rating - a.rating;
-    }
-    // "relevance" / default
-    return b.reviewsCount - a.reviewsCount;
+    // Default/Popularity/Relevance: keep backend order (newest first)
+    return 0;
   });
 
   const renderFiltersContent = () => (
@@ -229,7 +256,7 @@ export default function VenueListing() {
         <AccordionItem value="venue-type" className="border-b border-neutral-light py-2">
           <AccordionTrigger className="text-sm font-semibold hover:no-underline">Venue Type</AccordionTrigger>
           <AccordionContent className="pt-2 pb-3 space-y-2">
-            {["Hall", "Rooftop", "Lawn", "Auditorium", "Studio", "Resort"].map((type) => (
+            {Object.values(VenueType).map((type) => (
               <label key={type} className="flex items-center gap-2.5 text-sm text-neutral-dark cursor-pointer font-medium">
                 <Checkbox
                   checked={selectedTypes.includes(type)}
@@ -238,7 +265,7 @@ export default function VenueListing() {
                     triggerSimulatedLoading();
                   }}
                 />
-                {type}
+                {formatVenueType(type)}
               </label>
             ))}
           </AccordionContent>
@@ -347,7 +374,7 @@ export default function VenueListing() {
       <Header />
 
       <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-        
+
         {/* Search header / quick location bar */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 pb-6 border-b border-neutral-light">
           <div className="relative w-full md:max-w-md">
@@ -367,7 +394,7 @@ export default function VenueListing() {
               className="pl-9 h-11 bg-white border-input rounded-xl"
             />
           </div>
-          
+
           <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
             <div className="text-xs text-neutral-muted font-medium">
               Active filters: <Badge className="bg-teal-primary text-white py-0.5 px-2 text-[10px] ml-1">{activeCount}</Badge>
@@ -387,7 +414,7 @@ export default function VenueListing() {
 
         {/* MAIN LAYOUT: Sticky sidebar + scrollable panel */}
         <div className="flex gap-8 items-start relative">
-          
+
           {/* Desktop Left Sidebar Filters (hidden on mobile) */}
           <aside className="hidden lg:block w-72 shrink-0 bg-white border border-neutral-light rounded-2xl p-6 sticky top-20 max-h-[85vh] overflow-y-auto shadow-sm">
             <div className="flex justify-between items-center mb-5 pb-3 border-b border-neutral-light">
@@ -403,7 +430,7 @@ export default function VenueListing() {
 
           {/* Right Main Panel */}
           <div className="flex-1 w-full">
-            
+
             {/* Top Bar inside panel */}
             <div className="flex justify-between items-center mb-6 bg-white border border-neutral-light p-3.5 rounded-xl shadow-xs">
               <div className="text-sm text-neutral-dark font-medium">
@@ -411,7 +438,7 @@ export default function VenueListing() {
                   <Skeleton className="h-5 w-40" />
                 ) : (
                   <span>
-                    <strong className="text-teal-primary font-bold">{sortedVenues.length}</strong> venues found
+                    <strong className="text-teal-primary font-bold">{totalCount}</strong> venues found
                     {searchLocation && <span> in <strong className="text-neutral-dark">{searchLocation}</strong></span>}
                   </span>
                 )}
@@ -454,6 +481,13 @@ export default function VenueListing() {
             </div>
 
             {/* RESULTS CONTAINER */}
+            {apiError && (
+              <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl p-4 text-xs flex gap-2 items-center mb-6 animate-fade-in">
+                <ShieldAlert className="h-4.5 w-4.5 shrink-0" />
+                <span>{apiError}</span>
+              </div>
+            )}
+
             {loading ? (
               // Loading skeletons
               <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 gap-6" : "space-y-6"}>
@@ -488,96 +522,130 @@ export default function VenueListing() {
               </div>
             ) : (
               // Result Cards (Grid or List view)
-              <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 gap-6 animate-fade-in" : "space-y-6 animate-fade-in"}>
-                {sortedVenues.map((venue) => {
-                  const isStarred = wishlist.includes(venue.id);
-                  return (
-                    <div
-                      key={venue.id}
-                      className={`group flex bg-white rounded-2xl border border-neutral-light overflow-hidden shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 ${
-                        viewMode === "list" ? "flex-col sm:flex-row" : "flex-col"
-                      }`}
-                    >
-                      {/* Image Frame */}
-                      <div className={`relative bg-neutral-light overflow-hidden shrink-0 ${viewMode === "list" ? "h-56 sm:h-auto sm:w-72" : "h-52 w-full"}`}>
-                        <Image
-                          src={venue.image}
-                          alt={venue.name}
-                          fill
-                          className="object-cover group-hover:scale-103 transition-transform duration-500"
-                        />
-                        {venue.verified && (
+              <div className="space-y-6">
+                <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 gap-6 animate-fade-in" : "space-y-6 animate-fade-in"}>
+                  {sortedVenues.map((venue) => {
+                    const isStarred = wishlist.includes(venue.id);
+                    const venueImage = venue.thumbnailImage || "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&q=80&w=800";
+                    const formattedType = formatVenueType(venue.venueType);
+                    const occasions = getOccasionsForType(venue.venueType);
+                    return (
+                      <div
+                        key={venue.id}
+                        className={`group flex bg-white rounded-2xl border border-neutral-light overflow-hidden shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 ${viewMode === "list" ? "flex-col sm:flex-row" : "flex-col"
+                          }`}
+                      >
+                        {/* Image Frame */}
+                        <div className={`relative bg-neutral-light overflow-hidden shrink-0 ${viewMode === "list" ? "h-56 sm:h-auto sm:w-72" : "h-52 w-full"}`}>
+                          <Image
+                            src={venueImage}
+                            alt={venue.venueName}
+                            fill
+                            className="object-cover group-hover:scale-103 transition-transform duration-500"
+                          />
                           <Badge className="absolute top-3 left-3 bg-teal-primary text-white text-[9px] font-bold border-0 py-0.5 px-2.5">
                             Verified
                           </Badge>
-                        )}
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handleWishlistToggle(venue.id);
-                          }}
-                          className="absolute top-3 right-3 h-8 w-8 bg-white/95 rounded-full flex items-center justify-center shadow-sm text-neutral-dark hover:text-red-500 transition-colors focus:outline-none"
-                        >
-                          <Heart className={`h-4 w-4 transition-all ${isStarred ? "fill-red-500 text-red-500" : "text-neutral-muted"}`} />
-                        </button>
-                      </div>
+                          {/* <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleWishlistToggle(venue.id);
+                            }}
+                            className="absolute top-3 right-3 h-8 w-8 bg-white/95 rounded-full flex items-center justify-center shadow-sm text-neutral-dark hover:text-red-500 transition-colors focus:outline-none"
+                          >
+                            <Heart className={`h-4 w-4 transition-all ${isStarred ? "fill-red-500 text-red-500" : "text-neutral-muted"}`} />
+                          </button> */}
+                        </div>
 
-                      {/* Content Frame */}
-                      <div className="p-5 flex-grow flex flex-col justify-between">
-                        <div>
-                          {/* Badges */}
-                          <div className="flex flex-wrap gap-1 mb-2">
-                            <span className="text-[9px] font-bold uppercase tracking-wider bg-teal-light text-teal-primary py-0.5 px-2 rounded-full">
-                              {venue.type}
-                            </span>
-                            {venue.occasions.slice(0, 2).map((occ) => (
-                              <span key={occ} className="text-[9px] font-semibold bg-neutral-light text-neutral-muted py-0.5 px-2 rounded-full">
-                                {occ}
+                        {/* Content Frame */}
+                        <div className="p-5 flex-grow flex flex-col justify-between">
+                          <div>
+                            {/* Badges */}
+                            <div className="flex flex-wrap gap-1 mb-2">
+                              <span className="text-[9px] font-bold uppercase tracking-wider bg-teal-light text-teal-primary py-0.5 px-2 rounded-full">
+                                {formattedType}
                               </span>
-                            ))}
-                          </div>
-
-                          <h3 className="text-base font-serif font-bold text-neutral-dark group-hover:text-teal-primary transition-colors mb-1 line-clamp-1">
-                            {venue.name}
-                          </h3>
-                          
-                          <p className="text-xs text-neutral-muted flex items-center gap-1 mb-3">
-                            <MapPin className="h-3 w-3 text-teal-primary" /> {venue.location}
-                          </p>
-
-                          <div className="flex items-center gap-1.5 mb-4">
-                            <div className="flex text-amber-cta">
-                              {Array.from({ length: 5 }).map((_, i) => (
-                                <Star
-                                  key={i}
-                                  className={`h-3 w-3 ${i < Math.floor(venue.rating) ? "fill-amber-cta" : "text-neutral-light"}`}
-                                />
+                              {occasions.slice(0, 2).map((occ) => (
+                                <span key={occ} className="text-[9px] font-semibold bg-neutral-light text-neutral-muted py-0.5 px-2 rounded-full">
+                                  {occ}
+                                </span>
                               ))}
                             </div>
-                            <span className="text-xs font-bold text-neutral-dark">{venue.rating.toFixed(1)}</span>
-                            <span className="text-xs text-neutral-muted">({venue.reviewsCount})</span>
-                          </div>
-                        </div>
 
-                        {/* Price & Action Strip */}
-                        <div className="pt-3 border-t border-neutral-light flex justify-between items-center mt-auto">
-                          <div>
-                            <span className="text-[10px] text-neutral-muted font-medium uppercase leading-none block">Per Day</span>
-                            <span className="text-base font-bold text-teal-primary font-sans">
-                              ₹{venue.pricePerDay.toLocaleString("en-IN")}
-                            </span>
+                            <h3 className="text-base font-serif font-bold text-neutral-dark group-hover:text-teal-primary transition-colors mb-1 line-clamp-1">
+                              {venue.venueName}
+                            </h3>
+
+                            <p className="text-xs text-neutral-muted flex items-center gap-1 mb-3">
+                              <MapPin className="h-3 w-3 text-teal-primary" /> {venue.city}, India
+                            </p>
+
+                            {/* <div className="flex items-center gap-1.5 mb-4">
+                              <div className="flex text-amber-cta">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    className={`h-3 w-3 ${i < 4 ? "fill-amber-cta" : "text-neutral-light"}`}
+                                  />
+                                ))}
+                              </div>
+
+                            </div> */}
                           </div>
 
-                          <Link href={`/venues/${venue.id}`}>
-                            <Button size="sm" className="bg-teal-primary text-white hover:bg-teal-hover rounded-lg h-9 px-4 text-xs font-semibold">
-                              View Details
-                            </Button>
-                          </Link>
+                          {/* Price & Action Strip */}
+                          <div className="pt-3 border-t border-neutral-light flex justify-between items-center mt-auto">
+                            <div>
+                              <span className="text-[10px] text-neutral-muted font-medium uppercase leading-none block">Starting from</span>
+                              <span className="text-base font-bold text-teal-primary font-sans">
+                                ₹{venue.startingPrice.toLocaleString("en-IN")}
+                              </span>
+                            </div>
+
+                            <Link href={`/venues/${venue.id}`}>
+                              <Button size="sm" className="bg-teal-primary text-white hover:bg-teal-hover rounded-lg h-9 px-4 text-xs font-semibold">
+                                View Details
+                              </Button>
+                            </Link>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+
+                {/* Pagination Controls */}
+                {totalCount > limit && (
+                  <div className="flex justify-center items-center gap-4 mt-8 pt-4 border-t border-neutral-light">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={page === 1}
+                      onClick={() => {
+                        setPage((p) => Math.max(1, p - 1));
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      className="border-input hover:bg-neutral-light rounded-lg h-9 px-4 text-xs font-semibold cursor-pointer"
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-xs text-neutral-muted font-medium">
+                      Page {page} of {Math.ceil(totalCount / limit)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={page >= Math.ceil(totalCount / limit)}
+                      onClick={() => {
+                        setPage((p) => p + 1);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      className="border-input hover:bg-neutral-light rounded-lg h-9 px-4 text-xs font-semibold cursor-pointer"
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -677,7 +745,7 @@ export default function VenueListing() {
                       animationDelay: `${i * 100}ms`
                     }}
                   >
-                    ₹{(v.pricePerDay / 1000).toFixed(0)}K
+                    ₹{(v.startingPrice / 1000).toFixed(0)}K
                   </div>
                 ))}
               </div>
@@ -688,7 +756,7 @@ export default function VenueListing() {
 
       {/* Extra space on mobile so bottom action bar doesn't overlay footer */}
       <div className="h-16 lg:hidden" />
-      
+
       <Footer />
     </div>
   );

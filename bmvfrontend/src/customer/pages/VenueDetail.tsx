@@ -6,7 +6,6 @@ import Link from "next/link";
 import Image from "next/image";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { MOCK_VENUES, Venue } from "@/src/lib/mockData";
 import { getSession, toggleWishlist, getWishlist } from "@/src/lib/authStore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   MapPin,
   Users,
@@ -31,8 +31,12 @@ import {
   Clock,
   ShieldCheck,
   PartyPopper,
-  X
+  X,
+  ShieldAlert,
+  Loader2
 } from "lucide-react";
+import { fetchPublicVenueDetail } from "@/src/venues/route";
+import { PublicVenueDetailResponseDto, VenueType, BookingType } from "@/src/venues/types";
 
 interface VenueDetailProps {
   id: string;
@@ -40,29 +44,75 @@ interface VenueDetailProps {
 
 export default function VenueDetail({ id }: VenueDetailProps) {
   const router = useRouter();
-  const venue = MOCK_VENUES.find((v) => v.id === id);
 
-  // States
+  // API State
+  const [venue, setVenue] = useState<PublicVenueDetailResponseDto | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState("");
+
+  // UI States
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [selectedSlot, setSelectedSlot] = useState<"Morning" | "Evening" | "Full Day">("Morning");
   const [guestsCount, setGuestsCount] = useState(50);
   const [wishlist, setWishlistState] = useState<string[]>([]);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
 
+  // Load wishlist & fetch venue details
   useEffect(() => {
     setWishlistState(getWishlist());
-  }, []);
 
-  if (!venue) {
+    const loadVenueDetail = async () => {
+      setLoading(true);
+      setApiError("");
+      try {
+        const data = await fetchPublicVenueDetail(id);
+        setVenue(data);
+        // Default guest count to a reasonable value within max capacity
+        setGuestsCount(Math.min(50, data.maxCapacity));
+      } catch (err: any) {
+        setApiError(err.message || "Failed to load venue details. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadVenueDetail();
+  }, [id]);
+
+  if (loading) {
     return (
-      <div className="flex flex-col min-h-screen">
+      <div className="flex flex-col min-h-screen bg-[#FAFAF8]">
         <Header />
-        <div className="flex-grow flex flex-col items-center justify-center py-20 px-4">
-          <h2 className="font-serif font-bold text-3xl text-neutral-dark mb-4">Venue Not Found</h2>
-          <p className="text-neutral-muted mb-8">The venue you are looking for does not exist or has been removed.</p>
+        <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-8">
+          <Skeleton className="h-6 w-32 bg-neutral-light rounded-lg" />
+          <Skeleton className="h-[380px] w-full bg-neutral-light rounded-2xl" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              <Skeleton className="h-44 w-full bg-neutral-light rounded-2xl" />
+              <Skeleton className="h-60 w-full bg-neutral-light rounded-2xl" />
+            </div>
+            <Skeleton className="h-96 w-full bg-neutral-light rounded-2xl" />
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (apiError || !venue) {
+    return (
+      <div className="flex flex-col min-h-screen bg-[#FAFAF8]">
+        <Header />
+        <div className="flex-grow flex flex-col items-center justify-center py-20 px-4 text-center">
+          <div className="h-14 w-14 rounded-full bg-red-50 flex items-center justify-center text-red-500 mb-4 animate-bounce">
+            <ShieldAlert className="h-7 w-7" />
+          </div>
+          <h2 className="font-serif font-bold text-3xl text-neutral-dark mb-2">Venue Load Failed</h2>
+          <p className="text-neutral-muted max-w-sm mb-8">{apiError || "The venue details could not be loaded."}</p>
           <Link href="/venues">
-            <Button className="bg-teal-primary text-white hover:bg-teal-hover">Back to Listings</Button>
+            <Button className="bg-teal-primary text-white hover:bg-teal-hover rounded-xl px-6 py-2.5 h-auto text-sm font-bold shadow-md">
+              Back to Listings
+            </Button>
           </Link>
         </div>
         <Footer />
@@ -77,55 +127,88 @@ export default function VenueDetail({ id }: VenueDetailProps) {
     setWishlistState(updated);
   };
 
-  // Pricing calculation
-  const getBasePrice = () => {
-    if (selectedSlot === "Full Day") return venue.pricePerDay;
-    return venue.pricePerSlot;
-  };
-
-  const basePrice = getBasePrice();
+  // Pricing calculation: strictly date-based (full-day only)
+  const basePrice = venue.startingPrice;
   const gstTax = Math.round(basePrice * 0.18); // 18% GST
   const serviceFee = Math.round(basePrice * 0.025); // 2.5% Service Fee
   const totalPrice = basePrice + gstTax + serviceFee;
 
   const handleBookNow = () => {
     const session = getSession();
-    
+
     // Save selection details to localStorage
     const bookingParams = {
       venueId: venue.id,
-      venueName: venue.name,
-      venueImage: venue.image,
+      venueName: venue.venueName,
+      venueImage: venueImages[0],
       date: selectedDate ? selectedDate.toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN"),
-      slot: selectedSlot,
+      slot: "Full Day",
       guests: guestsCount,
       totalPrice: totalPrice,
     };
-    
+
     localStorage.setItem("bmv_pending_booking", JSON.stringify(bookingParams));
 
     if (!session) {
-      // Redirect to login with return path
       router.push(`/login?returnUrl=${encodeURIComponent(`/booking/confirm`)}`);
     } else {
       router.push("/booking/confirm");
     }
   };
 
-  const handleOpenLightbox = (index: number) => {
-    setActivePhotoIdx(index);
-    setLightboxOpen(true);
+  // Helper mappings
+  const formatVenueType = (type: VenueType): string => {
+    switch (type) {
+      case VenueType.WEDDING_HALL: return "Wedding Hall";
+      case VenueType.AUDITORIUM: return "Auditorium";
+      case VenueType.RESORT: return "Resort";
+      case VenueType.CONVENTION_CENTER: return "Convention Center";
+      case VenueType.CAFE: return "Cafe";
+      case VenueType.PARTY_HALL: return "Party Hall";
+      case VenueType.MEETUP_SPACE: return "Meetup Space";
+      case VenueType.MALL: return "Mall Space";
+      case VenueType.HOTEL: return "Hotel Hall";
+      default: return "Venue";
+    }
   };
 
-  const handleNextPhoto = () => {
-    setActivePhotoIdx((prev) => (prev + 1) % venue.images.length);
+  const getOccasionsForType = (type: VenueType): string[] => {
+    switch (type) {
+      case VenueType.WEDDING_HALL: return ["Wedding", "Social"];
+      case VenueType.AUDITORIUM: return ["Corporate", "Academic"];
+      case VenueType.RESORT: return ["Wedding", "Social"];
+      case VenueType.CONVENTION_CENTER: return ["Corporate", "Exhibition"];
+      case VenueType.CAFE: return ["Birthday", "Social"];
+      case VenueType.PARTY_HALL: return ["Birthday", "Social"];
+      case VenueType.MEETUP_SPACE: return ["Corporate", "Workshop"];
+      default: return ["Event"];
+    }
   };
 
-  const handlePrevPhoto = () => {
-    setActivePhotoIdx((prev) => (prev - 1 + venue.images.length) % venue.images.length);
+  const getAmenities = () => {
+    const list = [];
+    if (venue.hasParking) {
+      list.push(`Parking${venue.parkingCapacity ? ` (Capacity: ${venue.parkingCapacity})` : ""}`);
+    }
+
+    // Type-specific defaults to keep list rich
+    switch (venue.venueType) {
+      case VenueType.WEDDING_HALL:
+        list.push("AC", "Decoration", "Catering", "Valet");
+        break;
+      case VenueType.AUDITORIUM:
+        list.push("AC", "AV Equipment", "WiFi");
+        break;
+      case VenueType.RESORT:
+        list.push("Catering", "AC", "WiFi", "Valet");
+        break;
+      default:
+        list.push("AC", "WiFi");
+        break;
+    }
+    return list;
   };
 
-  // Emoji dictionary for amenities
   const amenityEmojis: Record<string, string> = {
     Parking: "🅿",
     AC: "❄",
@@ -136,27 +219,48 @@ export default function VenueDetail({ id }: VenueDetailProps) {
     Decoration: "✨"
   };
 
+  // Process Images from Backend
+  const images = venue.images?.map((img) => img.imageUrl) || [];
+  const venueImages = images.length > 0 ? images : [
+    "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&q=80&w=800"
+  ];
+
+  const fullAddress = `${venue.address}, ${venue.city}, ${venue.district}, ${venue.state} - ${venue.pincode}`;
+
+  const handleOpenLightbox = (index: number) => {
+    setActivePhotoIdx(index);
+    setLightboxOpen(true);
+  };
+
+  const handleNextPhoto = () => {
+    setActivePhotoIdx((prev) => (prev + 1) % venueImages.length);
+  };
+
+  const handlePrevPhoto = () => {
+    setActivePhotoIdx((prev) => (prev - 1 + venueImages.length) % venueImages.length);
+  };
+
   return (
-    <div className="flex flex-col min-h-screen bg-[#FAFAF8]">
+    <div className="flex flex-col min-h-screen bg-[#FAFAF8] font-sans">
       <Header />
 
-      <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
-        
+      <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 relative z-10">
+
         {/* Back Link */}
         <div className="mb-4">
-          <Link href="/venues" className="inline-flex items-center gap-1 text-xs font-semibold text-neutral-muted hover:text-teal-primary">
+          <Link href="/venues" className="inline-flex items-center gap-1 text-xs font-bold text-neutral-muted hover:text-teal-primary transition-colors">
             <ChevronLeft className="h-4 w-4" /> Back to Venues
           </Link>
         </div>
 
         {/* IMAGE GALLERY GRID */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-3 rounded-2xl overflow-hidden shadow-md bg-white p-2 border border-neutral-light mb-8">
-          
+
           {/* Main Hero Photo */}
           <div className="md:col-span-2 relative h-[320px] md:h-[420px] bg-neutral-light group cursor-pointer" onClick={() => handleOpenLightbox(0)}>
             <Image
-              src={venue.images[0] || venue.image}
-              alt={`${venue.name} Main View`}
+              src={venueImages[0]}
+              alt={`${venue.venueName} Main View`}
               fill
               className="object-cover group-hover:brightness-95 transition-all"
             />
@@ -166,9 +270,9 @@ export default function VenueDetail({ id }: VenueDetailProps) {
             </div>
           </div>
 
-          {/* 2x2 Thumbnail Grid (hidden on mobile, shown as a column of 2 or grid on tablet/desktop) */}
+          {/* Thumbnail Grid */}
           <div className="hidden md:grid grid-cols-2 gap-2 h-[420px]">
-            {venue.images.slice(1, 5).map((img, idx) => (
+            {venueImages.slice(1, 5).map((img, idx) => (
               <div
                 key={idx}
                 className="relative cursor-pointer overflow-hidden group bg-neutral-light"
@@ -176,22 +280,22 @@ export default function VenueDetail({ id }: VenueDetailProps) {
               >
                 <Image
                   src={img}
-                  alt={`${venue.name} Detail ${idx + 1}`}
+                  alt={`${venue.venueName} Detail ${idx + 1}`}
                   fill
                   className="object-cover group-hover:scale-103 transition-transform duration-300 group-hover:brightness-90"
                 />
                 <div className="absolute inset-0 bg-black/5 group-hover:bg-black/15 transition-all" />
-                
-                {/* Overlay on last item to show remaining counts if there are more */}
-                {idx === 3 && venue.images.length > 5 && (
+
+                {/* Overlay on last item */}
+                {idx === 3 && venueImages.length > 5 && (
                   <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-lg">
-                    +{venue.images.length - 5} Photos
+                    +{venueImages.length - 5} Photos
                   </div>
                 )}
               </div>
             ))}
-            {/* Fallback if less than 5 images */}
-            {Array.from({ length: Math.max(0, 4 - venue.images.slice(1, 5).length) }).map((_, i) => (
+            {/* Fallback empty placeholders */}
+            {Array.from({ length: Math.max(0, 4 - venueImages.slice(1, 5).length) }).map((_, i) => (
               <div key={`fallback-${i}`} className="bg-neutral-light rounded-lg flex items-center justify-center text-neutral-muted">
                 <CalendarIcon className="h-6 w-6 opacity-30" />
               </div>
@@ -199,23 +303,21 @@ export default function VenueDetail({ id }: VenueDetailProps) {
           </div>
         </section>
 
-        {/* DETAILS & STICKY BOOKING PANEL CONTAINER */}
+        {/* DETAILS & STICKY BOOKING PANEL */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-          
+
           {/* Left Side: Venue Details */}
           <div className="lg:col-span-2 space-y-6">
-            
-            {/* Header info */}
+
+            {/* Header Info Card */}
             <div className="bg-white border border-neutral-light rounded-2xl p-6 shadow-sm">
               <div className="flex flex-wrap gap-2 mb-3">
                 <Badge className="bg-teal-primary text-white border-0 py-0.5 px-2.5 text-xs font-semibold">
-                  {venue.type}
+                  {formatVenueType(venue.venueType)}
                 </Badge>
-                {venue.verified && (
-                  <Badge variant="outline" className="border-teal-primary/30 text-teal-primary bg-teal-light py-0.5 px-2.5 text-xs font-semibold">
-                    Verified Venue
-                  </Badge>
-                )}
+                <Badge variant="outline" className="border-teal-primary/30 text-teal-primary bg-teal-light py-0.5 px-2.5 text-xs font-semibold">
+                  Verified Venue
+                </Badge>
                 <button
                   onClick={handleWishlistToggle}
                   className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-neutral-muted hover:text-red-500 transition-colors"
@@ -226,33 +328,33 @@ export default function VenueDetail({ id }: VenueDetailProps) {
               </div>
 
               <h1 className="font-serif text-3xl sm:text-4xl font-bold text-neutral-dark mb-2 leading-tight">
-                {venue.name}
+                {venue.venueName}
               </h1>
 
               <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-sm text-neutral-muted mb-4">
                 <p className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4 text-teal-primary" /> {venue.location}
+                  <MapPin className="h-4 w-4 text-teal-primary" /> {venue.city}, {venue.state}
                 </p>
                 <div className="hidden sm:block h-3.5 w-px bg-neutral-light" />
                 <div className="flex items-center gap-1">
                   <Star className="h-4 w-4 fill-amber-cta text-amber-cta" />
-                  <span className="font-bold text-neutral-dark">{venue.rating.toFixed(1)}</span>
-                  <span>({venue.reviewsCount} reviews)</span>
+                  <span className="font-bold text-neutral-dark">4.5</span>
+                  <span>(12 reviews)</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-4 border-t border-neutral-light">
                 <div className="text-center sm:text-left bg-neutral-light/40 p-3 rounded-xl">
                   <span className="text-[10px] uppercase font-bold text-neutral-muted block">Capacity</span>
-                  <span className="text-sm font-bold text-neutral-dark">{venue.capacity} guests max</span>
+                  <span className="text-sm font-bold text-neutral-dark">{venue.maxCapacity} guests max</span>
                 </div>
                 <div className="text-center sm:text-left bg-neutral-light/40 p-3 rounded-xl">
-                  <span className="text-[10px] uppercase font-bold text-neutral-muted block">Price Slot</span>
-                  <span className="text-sm font-bold text-teal-primary">₹{venue.pricePerSlot.toLocaleString("en-IN")}</span>
+                  <span className="text-[10px] uppercase font-bold text-neutral-muted block">Area Size</span>
+                  <span className="text-sm font-bold text-neutral-dark">{venue.squareFeet.toLocaleString("en-IN")} sqft</span>
                 </div>
                 <div className="text-center sm:text-left bg-neutral-light/40 p-3 rounded-xl">
                   <span className="text-[10px] uppercase font-bold text-neutral-muted block">Price Day</span>
-                  <span className="text-sm font-bold text-teal-primary">₹{venue.pricePerDay.toLocaleString("en-IN")}</span>
+                  <span className="text-sm font-bold text-teal-primary">₹{venue.startingPrice.toLocaleString("en-IN")}</span>
                 </div>
                 <div className="text-center sm:text-left bg-neutral-light/40 p-3 rounded-xl">
                   <span className="text-[10px] uppercase font-bold text-neutral-muted block">City</span>
@@ -261,48 +363,51 @@ export default function VenueDetail({ id }: VenueDetailProps) {
               </div>
             </div>
 
-            {/* Tab panel Overview | Amenities | Policies */}
+            {/* Tabs details */}
             <Tabs defaultValue="overview" className="w-full bg-white border border-neutral-light rounded-2xl p-6 shadow-sm">
               <TabsList className="bg-neutral-light border-0 mb-6 flex">
                 <TabsTrigger value="overview" className="flex-grow py-2">Overview</TabsTrigger>
                 <TabsTrigger value="amenities" className="flex-grow py-2">Amenities</TabsTrigger>
                 <TabsTrigger value="policies" className="flex-grow py-2">Policies</TabsTrigger>
               </TabsList>
-              
-              {/* Overview panel */}
+
               <TabsContent value="overview" className="space-y-4">
                 <h3 className="font-serif font-bold text-xl text-neutral-dark">About this Venue</h3>
-                <p className="text-sm text-neutral-muted leading-relaxed font-sans font-light whitespace-pre-line">
+                <p className="text-sm text-neutral-muted leading-relaxed whitespace-pre-line font-light">
                   {venue.description}
                 </p>
                 <div className="pt-4 border-t border-neutral-light">
+                  <h4 className="text-sm font-semibold text-neutral-dark mb-2">Detailed Address</h4>
+                  <p className="text-sm text-neutral-muted mb-4">{fullAddress}</p>
+
                   <h4 className="text-sm font-semibold text-neutral-dark mb-2">Suitable Occasions</h4>
                   <div className="flex flex-wrap gap-2">
-                    {venue.occasions.map((occ) => (
-                      <span key={occ} className="text-xs font-semibold bg-teal-light text-teal-primary py-1 px-3 rounded-full flex items-center gap-1">
-                        <CheckCircle2 className="h-3.5 w-3.5" /> {occ}
+                    {getOccasionsForType(venue.venueType).map((occ) => (
+                      <span key={occ} className="text-xs font-semibold bg-teal-light text-teal-primary py-1.5 px-3.5 rounded-full flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5 animate-pulse" /> {occ}
                       </span>
                     ))}
                   </div>
                 </div>
               </TabsContent>
-              
-              {/* Amenities Panel */}
+
               <TabsContent value="amenities" className="space-y-4">
                 <h3 className="font-serif font-bold text-xl text-neutral-dark">Available Amenities</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {venue.amenities.map((amenity) => (
-                    <div key={amenity} className="flex items-center gap-3 p-3 border border-neutral-light rounded-xl hover:border-teal-primary/30 hover:bg-teal-light/20 transition-all">
-                      <span className="text-xl" role="img" aria-label={amenity}>
-                        {amenityEmojis[amenity] || "🔹"}
-                      </span>
-                      <span className="text-sm font-semibold text-neutral-dark">{amenity}</span>
-                    </div>
-                  ))}
+                  {getAmenities().map((amenity) => {
+                    const cleanName = amenity.split(" (")[0];
+                    return (
+                      <div key={amenity} className="flex items-center gap-3 p-3 border border-neutral-light rounded-xl hover:border-teal-primary/30 hover:bg-teal-light/20 transition-all">
+                        <span className="text-xl">
+                          {amenityEmojis[cleanName] || "🔹"}
+                        </span>
+                        <span className="text-sm font-semibold text-neutral-dark">{amenity}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </TabsContent>
-              
-              {/* Policies Panel */}
+
               <TabsContent value="policies" className="space-y-4">
                 <h3 className="font-serif font-bold text-xl text-neutral-dark">Venue Policies & Guidelines</h3>
                 <div className="space-y-3.5">
@@ -311,8 +416,8 @@ export default function VenueDetail({ id }: VenueDetailProps) {
                       <Clock className="h-3.5 w-3.5" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-semibold text-neutral-dark">Booking Slot Times</h4>
-                      <p className="text-xs text-neutral-muted">Morning slots: 8:00 AM – 3:00 PM. Evening slots: 4:00 PM – 11:00 PM. Full day: 8:00 AM – 11:00 PM.</p>
+                      <h4 className="text-sm font-semibold text-neutral-dark">Booking Time Window</h4>
+                      <p className="text-xs text-neutral-muted">Full day booking hours: 8:00 AM – 11:00 PM. Access is strictly granted during these hours unless prior approval is obtained.</p>
                     </div>
                   </div>
 
@@ -321,8 +426,8 @@ export default function VenueDetail({ id }: VenueDetailProps) {
                       <ShieldCheck className="h-3.5 w-3.5" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-semibold text-neutral-dark">Cancellation Policy</h4>
-                      <p className="text-xs text-neutral-muted">Free cancellation up to 15 days before the event. 50% cancellation fee between 7-14 days. Non-refundable within 7 days of the booking.</p>
+                      <h4 className="text-sm font-semibold text-neutral-dark">Cancellation Terms</h4>
+                      <p className="text-xs text-neutral-muted">Free cancellation up to 15 days before the event date. 50% refund between 7-14 days. Bookings canceled within 7 days are non-refundable.</p>
                     </div>
                   </div>
 
@@ -331,8 +436,8 @@ export default function VenueDetail({ id }: VenueDetailProps) {
                       <PartyPopper className="h-3.5 w-3.5" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-semibold text-neutral-dark">Catering & External Vendors</h4>
-                      <p className="text-xs text-neutral-muted">In-house catering and decoration services are optional. External caterers and decorators are allowed with a minor vendor surcharge fee.</p>
+                      <h4 className="text-sm font-semibold text-neutral-dark">Catering and External Sur-charges</h4>
+                      <p className="text-xs text-neutral-muted">Catering services are optional. External vendors (Catering / Decoration) are permitted and require a basic coordination fee.</p>
                     </div>
                   </div>
                 </div>
@@ -340,7 +445,7 @@ export default function VenueDetail({ id }: VenueDetailProps) {
             </Tabs>
           </div>
 
-          {/* Right Side: Desktop Sticky Booking Panel */}
+          {/* Right Side: Desktop Booking Card (Slots Selector Removed) */}
           <div className="hidden lg:block">
             <Card className="sticky top-20 border border-neutral-light shadow-md bg-white rounded-2xl overflow-hidden">
               <CardContent className="p-6 space-y-5">
@@ -348,7 +453,7 @@ export default function VenueDetail({ id }: VenueDetailProps) {
                   <span className="text-sm font-bold text-neutral-dark">Booking Rate</span>
                   <div className="text-right">
                     <span className="text-xl font-bold font-serif text-teal-primary">₹{basePrice.toLocaleString("en-IN")}</span>
-                    <span className="text-xs text-neutral-muted block">/{selectedSlot === "Full Day" ? "day" : "slot"}</span>
+                    <span className="text-xs text-neutral-muted block">/ day</span>
                   </div>
                 </div>
 
@@ -375,27 +480,7 @@ export default function VenueDetail({ id }: VenueDetailProps) {
                   </Popover>
                 </div>
 
-                {/* Slot Selector */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] uppercase font-bold text-neutral-muted">Select Slot</label>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {["Morning", "Evening", "Full Day"].map((slotOption) => (
-                      <button
-                        key={slotOption}
-                        onClick={() => setSelectedSlot(slotOption as any)}
-                        className={`py-2 px-1 text-xs font-semibold rounded-lg border text-center transition-all ${
-                          selectedSlot === slotOption
-                            ? "bg-teal-primary text-white border-teal-primary shadow-xs"
-                            : "bg-white text-neutral-dark border-input hover:bg-neutral-light"
-                        }`}
-                      >
-                        {slotOption}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Guest Count Stepper */}
+                {/* Expected Guests Stepper */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] uppercase font-bold text-neutral-muted">Expected Guests</label>
                   <div className="flex items-center justify-between border border-input rounded-xl px-3 py-1 bg-white">
@@ -407,7 +492,7 @@ export default function VenueDetail({ id }: VenueDetailProps) {
                     </button>
                     <span className="text-sm font-bold text-neutral-dark">{guestsCount} guests</span>
                     <button
-                      onClick={() => setGuestsCount((prev) => Math.min(venue.capacity, prev + 10))}
+                      onClick={() => setGuestsCount((prev) => Math.min(venue.maxCapacity, prev + 10))}
                       className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-neutral-light text-neutral-dark"
                     >
                       <Plus className="h-4 w-4" />
@@ -418,7 +503,7 @@ export default function VenueDetail({ id }: VenueDetailProps) {
                 {/* Price Breakdown */}
                 <div className="space-y-2.5 pt-3 border-t border-neutral-light text-xs text-neutral-muted">
                   <div className="flex justify-between">
-                    <span>Base rate ({selectedSlot})</span>
+                    <span>Base rate (Full Day)</span>
                     <span className="font-semibold text-neutral-dark">₹{basePrice.toLocaleString("en-IN")}</span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -435,10 +520,10 @@ export default function VenueDetail({ id }: VenueDetailProps) {
                   </div>
                 </div>
 
-                {/* Booking Button */}
+                {/* Submit Booking Button */}
                 <Button
                   onClick={handleBookNow}
-                  className="w-full bg-amber-cta text-white hover:bg-amber-hover py-3.5 h-auto text-sm font-bold shadow-md shadow-amber-cta/30 rounded-xl"
+                  className="w-full bg-amber-cta text-white hover:bg-amber-hover py-3.5 h-auto text-sm font-bold shadow-md shadow-amber-cta/30 rounded-xl cursor-pointer"
                 >
                   Book Now
                 </Button>
@@ -447,7 +532,7 @@ export default function VenueDetail({ id }: VenueDetailProps) {
           </div>
         </div>
 
-        {/* MOBILE STICKY BOTTOM PANEL (Fixed at bottom on mobile) */}
+        {/* MOBILE STICKY BOTTOM PANEL (Slots Selector Removed) */}
         <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-neutral-light px-4 py-3 flex items-center justify-between shadow-2xl">
           <div>
             <span className="text-[10px] text-neutral-muted font-bold uppercase leading-none block">Total Price</span>
@@ -464,7 +549,7 @@ export default function VenueDetail({ id }: VenueDetailProps) {
               <SheetHeader className="pb-4 border-b border-neutral-light flex flex-row justify-between items-center">
                 <SheetTitle className="font-serif font-bold text-lg text-neutral-dark">Reserve Venue</SheetTitle>
               </SheetHeader>
-              
+
               <div className="py-4 space-y-4">
                 {/* Date Picker */}
                 <div className="space-y-1">
@@ -487,26 +572,6 @@ export default function VenueDetail({ id }: VenueDetailProps) {
                   </Popover>
                 </div>
 
-                {/* Slot Selector */}
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-bold text-neutral-muted">Slot</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {["Morning", "Evening", "Full Day"].map((slotOption) => (
-                      <button
-                        key={slotOption}
-                        onClick={() => setSelectedSlot(slotOption as any)}
-                        className={`py-2 px-1 text-xs font-semibold rounded-lg border text-center transition-all ${
-                          selectedSlot === slotOption
-                            ? "bg-teal-primary text-white border-teal-primary shadow-xs"
-                            : "bg-white text-neutral-dark border-input"
-                        }`}
-                      >
-                        {slotOption}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 {/* Guest Count Stepper */}
                 <div className="space-y-1">
                   <label className="text-[10px] uppercase font-bold text-neutral-muted">Expected Guests</label>
@@ -519,7 +584,7 @@ export default function VenueDetail({ id }: VenueDetailProps) {
                     </button>
                     <span className="text-sm font-bold text-neutral-dark">{guestsCount} guests</span>
                     <button
-                      onClick={() => setGuestsCount((prev) => Math.min(venue.capacity, prev + 10))}
+                      onClick={() => setGuestsCount((prev) => Math.min(venue.maxCapacity, prev + 10))}
                       className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-neutral-light text-neutral-dark"
                     >
                       <Plus className="h-4 w-4" />
@@ -530,7 +595,7 @@ export default function VenueDetail({ id }: VenueDetailProps) {
                 {/* Price Breakdown */}
                 <div className="space-y-2 pt-3 border-t border-neutral-light text-xs text-neutral-muted">
                   <div className="flex justify-between">
-                    <span>Base rate ({selectedSlot})</span>
+                    <span>Base rate (Full Day)</span>
                     <span className="font-semibold text-neutral-dark">₹{basePrice.toLocaleString("en-IN")}</span>
                   </div>
                   <div className="flex justify-between">
@@ -557,13 +622,12 @@ export default function VenueDetail({ id }: VenueDetailProps) {
           </Sheet>
         </div>
 
-        {/* LIGHTBOX MODAL */}
+        {/* LIGHTBOX GALLERY MODAL */}
         {lightboxOpen && (
           <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xs flex flex-col justify-between p-4">
-            {/* Top Bar */}
             <div className="flex justify-between items-center text-white p-2">
               <span className="text-xs font-semibold">
-                Photo {activePhotoIdx + 1} of {venue.images.length}
+                Photo {activePhotoIdx + 1} of {venueImages.length}
               </span>
               <button
                 onClick={() => setLightboxOpen(false)}
@@ -573,9 +637,7 @@ export default function VenueDetail({ id }: VenueDetailProps) {
               </button>
             </div>
 
-            {/* Photo Slide Frame */}
             <div className="flex-grow flex items-center justify-between relative max-w-5xl mx-auto w-full">
-              {/* Prev Button */}
               <button
                 onClick={handlePrevPhoto}
                 className="absolute left-2 z-10 h-10 w-10 bg-black/55 hover:bg-black/85 rounded-full flex items-center justify-center text-white border border-white/10 focus:outline-none"
@@ -583,17 +645,15 @@ export default function VenueDetail({ id }: VenueDetailProps) {
                 <ChevronLeft className="h-6 w-6" />
               </button>
 
-              {/* Slide image */}
               <div className="relative w-full h-[65vh] flex justify-center items-center">
                 <Image
-                  src={venue.images[activePhotoIdx]}
-                  alt={`${venue.name} Gallery Photo ${activePhotoIdx + 1}`}
+                  src={venueImages[activePhotoIdx]}
+                  alt={`${venue.venueName} Gallery Photo ${activePhotoIdx + 1}`}
                   fill
                   className="object-contain"
                 />
               </div>
 
-              {/* Next Button */}
               <button
                 onClick={handleNextPhoto}
                 className="absolute right-2 z-10 h-10 w-10 bg-black/55 hover:bg-black/85 rounded-full flex items-center justify-center text-white border border-white/10 focus:outline-none"
@@ -602,15 +662,13 @@ export default function VenueDetail({ id }: VenueDetailProps) {
               </button>
             </div>
 
-            {/* Thumbnail Bottom Bar */}
             <div className="flex gap-2 justify-center py-4 overflow-x-auto max-w-xl mx-auto w-full">
-              {venue.images.map((img, idx) => (
+              {venueImages.map((img, idx) => (
                 <div
                   key={idx}
                   onClick={() => setActivePhotoIdx(idx)}
-                  className={`relative h-12 w-16 shrink-0 rounded-md overflow-hidden cursor-pointer border-2 transition-all ${
-                    activePhotoIdx === idx ? "border-amber-cta opacity-100 scale-105" : "border-transparent opacity-50 hover:opacity-85"
-                  }`}
+                  className={`relative h-12 w-16 shrink-0 rounded-md overflow-hidden cursor-pointer border-2 transition-all ${activePhotoIdx === idx ? "border-amber-cta opacity-100 scale-105" : "border-transparent opacity-50 hover:opacity-85"
+                    }`}
                 >
                   <Image src={img} alt={`Gallery Thumb ${idx + 1}`} fill className="object-cover" />
                 </div>
@@ -620,9 +678,7 @@ export default function VenueDetail({ id }: VenueDetailProps) {
         )}
       </main>
 
-      {/* Spacing for mobile fixed bottom bar */}
       <div className="h-16 lg:hidden" />
-      
       <Footer />
     </div>
   );

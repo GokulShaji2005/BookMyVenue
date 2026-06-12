@@ -1,8 +1,8 @@
 // import { register } from "module";
 import { useState } from "react";
-import { sendOtp } from "../auth/route";
-import { verifyOtp } from "../auth/route";
-import { register } from "../auth/route";
+import { sendOtp } from "../customer/auth/route";
+import { verifyOtp } from "../customer/auth/route";
+import { register } from "../customer/auth/route";
 // export const useRegister = () => {
 
 //     const sendOtpHandler = async (phone: string) => {

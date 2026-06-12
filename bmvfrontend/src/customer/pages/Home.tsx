@@ -7,7 +7,7 @@ import Image from "next/image";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { MOCK_VENUES, MOCK_CITIES, Venue } from "@/src/lib/mockData";
-import { getWishlist, toggleWishlist } from "@/src/lib/authStore";
+import { getWishlist, toggleWishlist, getSession } from "@/src/lib/authStore";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,7 +45,11 @@ export default function Home() {
 
   useEffect(() => {
     setWishlistState(getWishlist());
-  }, []);
+    const session = getSession();
+    if (session && session.role === "customer" && session.isProfileCompleted === false) {
+      router.push("/customer/profile");
+    }
+  }, [router]);
 
   const handleCityClick = (city: string) => {
     setLocation(city);
@@ -103,12 +107,12 @@ export default function Home() {
             <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-teal-primary/20 border border-teal-primary/40 text-teal-light text-xs font-semibold uppercase tracking-wider mb-6 animate-fade-in">
               <Sparkles className="h-3.5 w-3.5 text-amber-cta" />Venue Booking
             </div>
-            {/* UNIFIED SEARCH BAR */}
-            <form
+
+            {/* <form
               onSubmit={handleSearch}
               className="w-full max-w-4xl bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-white/20 text-neutral-dark grid grid-cols-1 md:grid-cols-4 gap-3 items-center"
             >
-              {/* Location Input with suggestions */}
+          
               <div className="relative flex flex-col items-start px-1 py-1 border-b md:border-b-0 md:border-r border-neutral-light">
                 <span className="text-[10px] uppercase font-bold text-neutral-muted flex items-center gap-1">
                   <MapPin className="h-3 w-3 text-teal-primary" /> Location
@@ -125,7 +129,6 @@ export default function Home() {
                   className="w-full bg-transparent border-0 outline-none text-sm font-semibold pt-1 focus:ring-0 placeholder:text-neutral-muted/70 placeholder:font-normal"
                 />
 
-                {/* Auto-suggest dropdown */}
                 {showCities && (
                   <div className="absolute left-0 top-[110%] z-50 w-64 bg-white rounded-xl shadow-xl border border-border py-2 animate-fade-in max-h-60 overflow-y-auto">
                     <div className="px-3 py-1.5 text-xs font-semibold text-neutral-muted uppercase">Popular Cities</div>
@@ -147,7 +150,7 @@ export default function Home() {
                 )}
               </div>
 
-              {/* Occasion Selection */}
+           
               <div className="flex flex-col items-start px-2 py-1 border-b md:border-b-0 md:border-r border-neutral-light">
                 <span className="text-[10px] uppercase font-bold text-neutral-muted flex items-center gap-1">
                   <Building className="h-3 w-3 text-teal-primary" /> Occasion
@@ -166,7 +169,7 @@ export default function Home() {
                 </Select>
               </div>
 
-              {/* Date Popover Picker */}
+          
               <div className="flex flex-col items-start px-2 py-1">
                 <span className="text-[10px] uppercase font-bold text-neutral-muted flex items-center gap-1">
                   <CalendarIcon className="h-3 w-3 text-teal-primary" /> Date
@@ -189,7 +192,6 @@ export default function Home() {
                 </Popover>
               </div>
 
-              {/* Search CTA */}
               <div className="px-2">
                 <Button
                   type="submit"
@@ -199,7 +201,7 @@ export default function Home() {
                   Search Venues
                 </Button>
               </div>
-            </form>
+            </form> */}
             <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight max-w-3xl leading-[1.1] mb-6 animate-slide-up">
               Find the Perfect Venue for Every Occasion
             </h1>
@@ -207,7 +209,16 @@ export default function Home() {
               Discover verified spaces, compare transparent pricing, and secure your booking in minutes.
             </p>
 
-
+            <div className="px-2">
+              <Button
+                type="button"
+                onClick={() => router.push("/venues")}
+                className="w-full bg-teal-primary hover:bg-teal-hover text-white h-12 rounded-xl flex items-center justify-center gap-2 font-medium shadow-md shadow-teal-primary/30"
+              >
+                <Search className="h-4 w-4" />
+                Search Venues
+              </Button>
+            </div>
           </div>
         </section>
 

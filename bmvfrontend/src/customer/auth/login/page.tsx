@@ -56,10 +56,15 @@ export default function Login() {
         email: data.user.email,
         phone: data.user.phone,
         role: (data.user.role === "venue_owner" ? "partner" : "customer") as "customer" | "partner",
+        isProfileCompleted: data.user.isProfileCompleted,
       });
 
       // Navigate to return URL or home
-      router.push(returnUrl);
+      if (data.user.role === "customer" && !data.user.isProfileCompleted) {
+        router.push("/customer/profile");
+      } else {
+        router.push(returnUrl);
+      }
     } catch (err: any) {
       setError(err.message || "Failed to log in. Please try again.");
     }
@@ -78,7 +83,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-[#FAFAF8] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative">
-      
+
       {/* Top right escape link */}
       <div className="absolute top-8 right-8 text-sm font-semibold">
         <Link href="/partner/login" className="text-teal-primary hover:underline flex items-center gap-1">
@@ -101,7 +106,7 @@ export default function Login() {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <Card className="border border-neutral-light shadow-xl bg-white rounded-2xl overflow-hidden">
           <CardContent className="p-6 md:p-8 space-y-5">
-            
+
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl p-3 text-xs flex gap-2 items-center">
                 <ShieldAlert className="h-4 w-4 shrink-0" />
@@ -110,7 +115,7 @@ export default function Login() {
             )}
 
             <form onSubmit={handleLogin} className="space-y-4">
-              
+
               {/* Email */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-neutral-muted uppercase">Email Address</label>
