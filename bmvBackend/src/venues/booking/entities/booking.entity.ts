@@ -66,7 +66,7 @@ export class Booking {
         name: 'booking_status',
         type: 'enum',
         enum: BookingStatus,
-        default: BookingStatus.PENDING_PAYMENT,
+        // default: BookingStatus.CONFIRMED,
     })
     bookingStatus: BookingStatus;
 
@@ -74,7 +74,7 @@ export class Booking {
         name: 'payment_status',
         type: 'enum',
         enum: PaymentStatus,
-        default: PaymentStatus.NOT_PAID,
+        default: PaymentStatus.PAID,
     })
     paymentStatus: PaymentStatus;
 
