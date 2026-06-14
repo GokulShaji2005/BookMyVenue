@@ -9,6 +9,8 @@ import { VenueImage } from './entities/venue-image.entity';
 import { VenueDocument } from './entities/venue-document.entity';
 import { VenueVerificationRequest } from './entities/venue-verification-request.entity';
 import { AdminVenueModule } from './admin-venue/admin-venue.module';
+import { VenueBlockedDate } from './entities/venue-blocked-date.entity';
+import { Booking } from './booking/entities/booking.entity';
 
 @Module({
   imports: [
@@ -17,7 +19,9 @@ import { AdminVenueModule } from './admin-venue/admin-venue.module';
       Venue,
       VenueImage,
       VenueDocument,
-      VenueVerificationRequest
+      VenueVerificationRequest,
+      VenueBlockedDate,
+      Booking,
     ]),
     AdminVenueModule,
   ],
@@ -25,3 +29,4 @@ import { AdminVenueModule } from './admin-venue/admin-venue.module';
   providers: [VenuesService],
 })
 export class VenuesModule { }
+

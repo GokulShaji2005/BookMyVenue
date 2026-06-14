@@ -6,21 +6,25 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In } from 'typeorm';
+import { Repository, DataSource, In, Not, Between } from 'typeorm';
 import { Venue } from './entities/venue.entity';
 import { VenueImage } from './entities/venue-image.entity';
 import { VenueDocument } from './entities/venue-document.entity';
 import { VenueVerificationRequest } from './entities/venue-verification-request.entity';
+import { VenueBlockedDate } from './entities/venue-blocked-date.entity';
 import { VenueStatus } from '../common/enums/venue-status.enum';
 import { VerificationStatus } from '../common/enums/verification-status.enum';
 import { ImageType } from '../common/enums/image-type.enum';
 import { DocumentType } from '../common/enums/document-type.enum';
+import { UserRole } from '../common/enums/user-role.enum';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { CreateVenueDto } from './dto/create-venue.dto';
 import { UpdateVenueInfoDto } from './dto/update-venue-info.dto';
 import { PublicVenuesFilterDto } from './dto/public-venues-filter.dto';
 import { PublicVenueResponseDto } from './dto/public-list-dto';
 import { PublicVenueDetailResponseDto } from './dto/public-list-dto';
+import { CreateVenueBlockedDateRangeDto } from './dto/venue-block.dto';
+import { Booking, BookingStatus } from './booking/entities/booking.entity';
 
 /** Minimum / maximum photos required per venue. */
 const MIN_PHOTOS_TOTAL = 5;
@@ -37,6 +41,10 @@ export class VenuesService {
     private readonly documentRepo: Repository<VenueDocument>,
     @InjectRepository(VenueVerificationRequest)
     private readonly verificationRepo: Repository<VenueVerificationRequest>,
+    @InjectRepository(VenueBlockedDate)
+    private readonly VenueBlockedRepo: Repository<VenueBlockedDate>,
+    @InjectRepository(Booking)
+    private readonly BookingRepo: Repository<Booking>,
     private readonly cloudinaryService: CloudinaryService,
     private readonly dataSource: DataSource,
   ) { }
@@ -519,6 +527,73 @@ export class VenuesService {
     return venueData;
   }
 
+  /**
+   * Blocks a date range on a venue.
+   * Only the venue owner is authorized.
+   * Validates date logic and checks for conflicting active bookings.
+   */
+  async venueBlocking(
+    dto: CreateVenueBlockedDateRangeDto,
+    userId: string,
+    userRole: UserRole,
+    venueId: string,
+  ): Promise<VenueBlockedDate> {
+    const { startDate, endDate, reason } = dto;
 
+    // 1. Fetch and validate venue
+    const venue = await this.venueRepo.findOne({ where: { id: venueId } });
 
+    if (!venue) {
+      throw new NotFoundException('The venue is not found');
+    }
+
+    // 2. Authorization: only the owner of this venue can block it
+    if (venue.ownerId !== userId) {
+      throw new ForbiddenException('You are not authorized to block this venue.');
+    }
+
+    // 3. Date Validations
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // endDate must not be before startDate
+    if (end < start) {
+      throw new BadRequestException('End date cannot be before start date.');
+    }
+
+    // startDate must be at least yesterday or later (not in the distant past)
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+
+    if (start < yesterday) {
+      throw new BadRequestException('Start date cannot be older than yesterday.');
+    }
+
+    // 4. Check for conflicting active bookings within this range
+    const conflictingBooking = await this.BookingRepo.findOne({
+      where: {
+        venueId,
+        bookingStatus: Not(BookingStatus.CANCELLED),
+        bookingDate: Between(startDate, endDate),
+      },
+    });
+
+    if (conflictingBooking) {
+      throw new ConflictException(
+        `Cannot block this range. There is an active booking on ${conflictingBooking.bookingDate}.`,
+      );
+    }
+
+    // 5. Create and save the block range
+    const blockedRange = this.VenueBlockedRepo.create({
+      venueId,
+      startDate,
+      endDate,
+      reason: reason || null,
+    });
+
+    return await this.VenueBlockedRepo.save(blockedRange);
+  }
 }

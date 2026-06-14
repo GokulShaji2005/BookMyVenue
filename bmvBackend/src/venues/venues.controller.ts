@@ -29,6 +29,7 @@ import { CreateVenueDto } from './dto/create-venue.dto';
 import { UpdateVenueInfoDto } from './dto/update-venue-info.dto';
 import { ImageType } from '../common/enums/image-type.enum';
 import { DocumentType } from '../common/enums/document-type.enum';
+import { CreateVenueBlockedDateRangeDto } from './dto/venue-block.dto';
 
 /** Helper to get the pre-loaded venue from request (attached by VenueOwnerGuard). */
 function getVenue(req: any): Venue {
@@ -223,5 +224,23 @@ export class VenuesController {
     @CurrentUser() user: CurrentUserPayload,
   ) {
     return this.venuesService.submitForVerification(getVenue(req), user.sub);
+  }
+
+  // ─── Block Venue Dates ─────────────────────────────────────────────────────
+
+  /**
+   * POST /booking/venues/:venueId/block
+   * Venue owner blocks a date range on their venue.
+   * Only the owner of that specific venue can call this.
+   */
+  @Post('venues/:venueId/block')
+  @HttpCode(HttpStatus.CREATED)
+  @Roles(UserRole.VENUE_OWNER)
+  blockVenueDates(
+    @Param('venueId', ParseUUIDPipe) venueId: string,
+    @Body() dto: CreateVenueBlockedDateRangeDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    return this.venuesService.venueBlocking(dto, user.sub, user.role, venueId);
   }
 }

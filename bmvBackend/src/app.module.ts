@@ -8,6 +8,7 @@ import { DbModule } from './db/db.module';
 import { UsersModule } from './users/users.module';
 import { VenuesModule } from './venues/venues.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { BookingModule } from './venues/booking/booking.module';
 
 @Module({
   imports: [
@@ -21,9 +22,10 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
     DbModule,
     UsersModule,
     VenuesModule,
+    BookingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
 
