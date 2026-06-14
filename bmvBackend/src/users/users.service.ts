@@ -141,7 +141,7 @@ export class UsersService {
   async onboardCustomer(
     userId: string,
     dto: OnboardCustomerDto,
-  ): Promise<{ message: string; isProfileCompleted: boolean; profile: CustomerProfile }> {
+  ): Promise<{ message: string; isProfileCompleted: boolean;}> {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found.');
@@ -170,7 +170,7 @@ export class UsersService {
     return {
       message: 'Customer onboarding completed successfully.',
       isProfileCompleted: true,
-      profile: savedProfile,
+      // profile: savedProfile,
     };
   }
 }

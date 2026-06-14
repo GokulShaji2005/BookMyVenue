@@ -430,7 +430,7 @@ export class VenuesService {
   async findPublicVenues(
     filters: PublicVenuesFilterDto,
   ): Promise<{ data: PublicVenueResponseDto[]; total: number; page: number; limit: number }> {
-    const { city, venueType, maxCapacity, search, page = 1, limit = 10 } = filters;
+    const { city, venueType, maxCapacity, search, date, page = 1, limit = 10 } = filters;
 
     const query = this.venueRepo.createQueryBuilder('venue')
       .leftJoinAndSelect('venue.images', 'image')
@@ -454,6 +454,21 @@ export class VenuesService {
         '(LOWER(venue.venueName) LIKE LOWER(:search) OR LOWER(venue.description) LIKE LOWER(:search) OR LOWER(venue.city) LIKE LOWER(:search))',
         { search: `%${search}%` },
       );
+    }
+
+    // Exclude venues that are already booked on the requested date
+    if (date) {
+      query.andWhere(`venue.id NOT IN (
+        SELECT b.venue_id FROM bookings b
+        WHERE b.booking_date = :date
+        AND b.booking_status != 'CANCELLED'
+      )`, { date });
+
+      // Exclude venues that are blocked (range covers the requested date)
+      query.andWhere(`venue.id NOT IN (
+        SELECT vbd.venue_id FROM venue_blocked_dates vbd
+        WHERE :date BETWEEN vbd.start_date AND vbd.end_date
+      )`, { date });
     }
 
     const skip = (page - 1) * limit;
