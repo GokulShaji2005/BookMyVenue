@@ -65,8 +65,14 @@ export default function Header() {
                   </Button>
                 </Link>
               ) : (
-                <div className="flex items-center gap-3 text-sm">
+                <div className="flex items-center gap-4 text-sm">
                   <span className="font-medium text-neutral-dark">Hello, {session.name}</span>
+                  <Link href="/customer/bookings">
+                    <Button variant="outline" className="border-teal-primary text-teal-primary hover:bg-teal-light flex items-center gap-1.5 py-1 px-3.5 rounded-xl h-9 text-xs font-semibold">
+                      <Calendar className="h-3.5 w-3.5" />
+                      My Bookings
+                    </Button>
+                  </Link>
                   <div className="h-8 w-px bg-border" />
                 </div>
               )}
@@ -148,10 +154,17 @@ export default function Header() {
                 <p className="text-xs text-neutral-muted">Logged in as</p>
                 <p className="text-sm font-semibold text-neutral-dark">{session.name} ({session.role})</p>
               </div>
-              {session.role === "partner" && (
+              {session.role === "partner" ? (
                 <Link href="/partner/dashboard" onClick={() => setMobileMenuOpen(false)}>
                   <Button className="w-full bg-teal-primary text-white hover:bg-teal-hover">
                     Go to Partner Dashboard
+                  </Button>
+                </Link>
+              ) : (
+                <Link href="/customer/bookings" onClick={() => setMobileMenuOpen(false)}>
+                  <Button className="w-full bg-teal-primary text-white hover:bg-teal-hover flex items-center justify-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    My Bookings
                   </Button>
                 </Link>
               )}

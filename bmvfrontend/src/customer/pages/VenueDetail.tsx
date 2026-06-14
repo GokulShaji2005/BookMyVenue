@@ -136,12 +136,19 @@ export default function VenueDetail({ id }: VenueDetailProps) {
   const handleBookNow = () => {
     const session = getSession();
 
+    const formatDate = (dateObj: Date) => {
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+      const day = String(dateObj.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+
     // Save selection details to localStorage
     const bookingParams = {
       venueId: venue.id,
       venueName: venue.venueName,
       venueImage: venueImages[0],
-      date: selectedDate ? selectedDate.toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN"),
+      date: selectedDate ? formatDate(selectedDate) : formatDate(new Date()),
       slot: "Full Day",
       guests: guestsCount,
       totalPrice: totalPrice,

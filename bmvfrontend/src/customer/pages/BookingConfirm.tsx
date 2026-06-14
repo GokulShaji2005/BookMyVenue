@@ -6,7 +6,8 @@ import Link from "next/link";
 import Image from "next/image";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { getSession, addBooking } from "@/src/lib/authStore";
+import { getSession } from "@/src/lib/authStore";
+import { apiFetch } from "@/src/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,7 +19,9 @@ import {
   Building,
   ArrowRight,
   ShieldCheck,
-  CreditCard
+  CreditCard,
+  Loader2,
+  ShieldAlert
 } from "lucide-react";
 
 export default function BookingConfirm() {
@@ -36,6 +39,8 @@ export default function BookingConfirm() {
   // Confirmation state
   const [isSuccess, setIsSuccess] = useState(false);
   const [bookingId, setBookingId] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [apiError, setApiError] = useState("");
 
   useEffect(() => {
     const activeSession = getSession();
@@ -58,26 +63,34 @@ export default function BookingConfirm() {
     }
   }, [router]);
 
-  const handleConfirmBooking = (e: React.FormEvent) => {
+  const handleConfirmBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pending) return;
 
-    // Save actual booking to mock DB
-    const newBk = addBooking({
-      venueId: pending.venueId,
-      venueName: pending.venueName,
-      venueImage: pending.venueImage,
-      date: pending.date,
-      slot: pending.slot,
-      guests: pending.guests,
-      totalPrice: pending.totalPrice
-    });
+    setIsSubmitting(true);
+    setApiError("");
 
-    // Clear pending booking
-    localStorage.removeItem("bmv_pending_booking");
-    
-    setBookingId(newBk.id);
-    setIsSuccess(true);
+    try {
+      const response = await apiFetch<any>("/booking", {
+        method: "POST",
+        body: {
+          venueId: pending.venueId,
+          bookingDate: pending.date,
+          specialRequest: `Coordinator: ${contactName}, Phone: ${contactPhone}, Email: ${contactEmail}`,
+        },
+      });
+
+      // Clear pending booking
+      localStorage.removeItem("bmv_pending_booking");
+      
+      // Use bookingReference as display ID (e.g. BMV-XXXXXX)
+      setBookingId(response.bookingReference || response.bookingId);
+      setIsSuccess(true);
+    } catch (err: any) {
+      setApiError(err.message || "Failed to confirm booking. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!pending) {
@@ -157,6 +170,14 @@ export default function BookingConfirm() {
             <div className="grid grid-cols-1 md:grid-cols-5 gap-8 items-start">
               {/* Form panel */}
               <form onSubmit={handleConfirmBooking} className="md:col-span-3 bg-white border border-neutral-light rounded-2xl p-6 shadow-sm space-y-5">
+                
+                {apiError && (
+                  <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl p-3.5 text-xs flex gap-2 items-start animate-fade-in">
+                    <ShieldAlert className="h-4.5 w-4.5 shrink-0 mt-0.5" />
+                    <span>{apiError}</span>
+                  </div>
+                )}
+
                 <h3 className="text-lg font-serif font-bold text-neutral-dark pb-2 border-b border-neutral-light">Event Coordinator Details</h3>
                 
                 <div className="space-y-1.5">
@@ -207,10 +228,20 @@ export default function BookingConfirm() {
 
                 <Button
                   type="submit"
+                  disabled={isSubmitting}
                   className="w-full bg-amber-cta text-white hover:bg-amber-hover py-4 h-auto text-base font-bold shadow-md shadow-amber-cta/20 rounded-xl flex items-center justify-center gap-2"
                 >
-                  <CreditCard className="h-5 w-5" />
-                  Confirm & Secure Booking
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Securing Booking...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="h-5 w-5" />
+                      Confirm & Secure Booking
+                    </>
+                  )}
                 </Button>
               </form>
 

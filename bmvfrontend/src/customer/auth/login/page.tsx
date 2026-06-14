@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Eye, EyeOff, Mail, Lock, ShieldAlert } from "lucide-react";
+import { login } from "../route";
 
 export default function Login() {
   const router = useRouter();
@@ -36,19 +37,7 @@ export default function Login() {
     }
 
     try {
-      const data = await apiFetch<{
-        user: {
-          id: string;
-          name: string;
-          email: string;
-          phone: string;
-          role: string;
-          isProfileCompleted: boolean;
-        };
-      }>("/auth/login", {
-        method: "POST",
-        body: { email, password },
-      });
+      const data = await login(email, password)
 
       // Set user session in UI store (secrets/tokens are secured in HttpOnly cookies)
       setSession({
@@ -63,23 +52,23 @@ export default function Login() {
       if (data.user.role === "customer" && !data.user.isProfileCompleted) {
         router.push("/customer/profile");
       } else {
-        router.push(returnUrl);
+        router.push('/venues');
       }
     } catch (err: any) {
       setError(err.message || "Failed to log in. Please try again.");
     }
   };
 
-  const handleGoogleLogin = () => {
-    // Set mock customer session
-    setSession({
-      name: "Google User",
-      email: "googleuser@gmail.com",
-      phone: "9988776655",
-      role: "customer"
-    });
-    router.push(returnUrl);
-  };
+  // const handleGoogleLogin = () => {
+  //   // Set mock customer session
+  //   setSession({
+  //     name: "Google User",
+  //     email: "googleuser@gmail.com",
+  //     phone: "9988776655",
+  //     role: "customer"
+  //   });
+  //   router.push(returnUrl);
+  // };
 
   return (
     <div className="min-h-screen bg-[#FAFAF8] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative">
@@ -181,7 +170,7 @@ export default function Login() {
             </div>
 
             {/* Google Login */}
-            <Button
+            {/* <Button
               type="button"
               variant="outline"
               onClick={handleGoogleLogin}
@@ -206,7 +195,7 @@ export default function Login() {
                 />
               </svg>
               Sign in with Google
-            </Button>
+            </Button> */}
 
             {/* Register link */}
             <p className="text-center text-xs text-neutral-muted pt-2">

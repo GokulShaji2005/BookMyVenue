@@ -6,6 +6,14 @@ export interface VerifyOtpResponse {
     phone: string;
     phoneVerifiedToken: string;
 }
+type OnboardCustomerPayload = {
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    state: string;
+    pincode: string;
+    googleLocationUrl?: string;
+};
 
 
 export const sendOtp = (
@@ -36,4 +44,27 @@ export const register = (
         body: { name, phone, email, password, phoneVerifiedToken: phoneToken, role }
     })
 
+}
+
+export const onboardCustomer = (data: OnboardCustomerPayload) => {
+    return apiFetch(`/customers/onboard`, {
+        method: "POST",
+        body: data,
+    });
+};
+
+export const login = (email: string, password: string) => {
+    return apiFetch<{
+        user: {
+            id: string;
+            name: string;
+            email: string;
+            phone: string;
+            role: string;
+            isProfileCompleted: boolean;
+        };
+    }>("/auth/login", {
+        method: "POST",
+        body: { email, password },
+    });
 }
