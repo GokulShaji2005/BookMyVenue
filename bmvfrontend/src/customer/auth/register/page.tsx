@@ -22,7 +22,7 @@ import {
   Sparkles,
   PartyPopper
 } from "lucide-react";
-import { sendOtp, verifyOtp, register } from "../route"
+import { sendOtp, verifyOtp, register } from "../../../common/auth/route"
 export interface VerifyOtpResponse {
   verified: boolean;
   phone: string;

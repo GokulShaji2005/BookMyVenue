@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getSession, clearSession, UserSession } from "@/src/lib/authStore";
+import { apiFetch } from "@/src/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -18,20 +19,49 @@ import {
   XCircle,
   MessageSquare,
   ShieldCheck,
-  Star
+  Star,
+  Loader2
 } from "lucide-react";
 
 export default function Dashboard() {
   const router = useRouter();
   const [session, setSessionState] = useState<UserSession | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const activeSession = getSession();
-    if (!activeSession || activeSession.role !== "partner") {
+    if (!activeSession || activeSession.role !== "venue_owner") {
       router.push("/partner/login");
-    } else {
-      setSessionState(activeSession);
+      return;
     }
+    setSessionState(activeSession);
+
+    // Fetch owner's venue and verify approval status
+    const checkOnboardingStatus = async () => {
+      try {
+        const venue = await apiFetch<any>("/venues/my-venue");
+        if (venue.status === "DRAFT") {
+          router.push("/partner/onboarding");
+          return;
+        }
+        if (
+          venue.status === "PENDING_REVIEW" ||
+          venue.status === "CHANGES_REQUESTED" ||
+          venue.status === "REJECTED"
+        ) {
+          // Venue not yet approved — show status tracking page
+          router.push("/partner/status");
+          return;
+        }
+        // Only APPROVED reaches here
+        setLoading(false);
+      } catch (err: any) {
+        // If venue is 404 (not created), redirect to onboarding
+        router.push("/partner/onboarding");
+      }
+    };
+
+    checkOnboardingStatus();
   }, [router]);
 
   const handleLogout = () => {
@@ -46,17 +76,18 @@ export default function Dashboard() {
     { id: "BK-339841", name: "Manoj Kumar", email: "manoj@gmail.com", date: "12/07/2026", slot: "Full Day", guests: 1200, amount: 247000, status: "Cancelled" }
   ];
 
-  if (!session) {
+  if (loading || !session) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FAFAF8]">
-        <p className="text-neutral-muted">Verifying partner session...</p>
+      <div className="min-h-screen flex items-center justify-center bg-[#FAFAF8] font-sans">
+        <Loader2 className="h-6 w-6 animate-spin text-teal-primary mr-2" />
+        <p className="text-neutral-muted text-sm font-semibold">Verifying partner profile...</p>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-[#FAFAF8] flex flex-col font-sans">
-      
+
       {/* Dashboard Top Header */}
       <header className="bg-white border-b border-neutral-light h-16 flex items-center justify-between px-6 shadow-xs sticky top-0 z-40">
         <div className="flex items-center gap-3">
@@ -85,10 +116,10 @@ export default function Dashboard() {
       </header>
 
       <div className="flex-grow flex max-w-7xl w-full mx-auto p-6 gap-6 items-start flex-col lg:flex-row">
-        
+
         {/* Main Content Area */}
         <div className="flex-1 w-full space-y-6">
-          
+
           {/* Welcome banner */}
           <div className="bg-white border border-neutral-light rounded-2xl p-6 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
@@ -171,7 +202,7 @@ export default function Dashboard() {
               <h3 className="font-serif font-bold text-lg text-neutral-dark">Recent Booking Requests</h3>
               <span className="text-xs text-neutral-muted font-medium">Auto-Refresh Active</span>
             </div>
-            
+
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
@@ -200,13 +231,12 @@ export default function Dashboard() {
                       <td className="px-6 py-4 text-center font-bold text-neutral-dark">{bk.guests}</td>
                       <td className="px-6 py-4 text-right font-bold text-teal-primary">₹{bk.amount.toLocaleString("en-IN")}</td>
                       <td className="px-6 py-4 text-center">
-                        <span className={`inline-flex items-center gap-1 py-0.5 px-2.5 rounded-full text-[10px] font-bold ${
-                          bk.status === "Confirmed"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : bk.status === "Pending"
-                              ? "bg-amber-50 text-amber-700"
-                              : "bg-red-50 text-red-700"
-                        }`}>
+                        <span className={`inline-flex items-center gap-1 py-0.5 px-2.5 rounded-full text-[10px] font-bold ${bk.status === "Confirmed"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : bk.status === "Pending"
+                            ? "bg-amber-50 text-amber-700"
+                            : "bg-red-50 text-red-700"
+                          }`}>
                           {bk.status === "Confirmed" ? <CheckCircle className="h-3 w-3" /> : bk.status === "Pending" ? <Clock className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
                           {bk.status}
                         </span>
@@ -249,13 +279,12 @@ export default function Dashboard() {
                   return (
                     <div
                       key={i}
-                      className={`py-2 rounded-lg cursor-pointer transition-colors ${
-                        isBooked
-                          ? "bg-amber-light text-amber-cta border border-amber-cta/20"
-                          : isBlocked
-                            ? "bg-red-50 text-red-500 border border-red-200"
-                            : "hover:bg-neutral-light/50 border border-transparent"
-                      }`}
+                      className={`py-2 rounded-lg cursor-pointer transition-colors ${isBooked
+                        ? "bg-amber-light text-amber-cta border border-amber-cta/20"
+                        : isBlocked
+                          ? "bg-red-50 text-red-500 border border-red-200"
+                          : "hover:bg-neutral-light/50 border border-transparent"
+                        }`}
                     >
                       {dayNum}
                     </div>

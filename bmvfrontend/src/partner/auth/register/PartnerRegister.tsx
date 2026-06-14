@@ -23,7 +23,9 @@ import {
   Sparkles,
   Store
 } from "lucide-react";
-
+import { sendOtp, verifyOtp } from "@/src/common/auth/route";
+import { register } from "@/src/common/auth/route";
+import { email } from "zod";
 export default function PartnerRegister() {
   const router = useRouter();
 
@@ -45,11 +47,11 @@ export default function PartnerRegister() {
   const [venueName, setVenueName] = useState("");
   const [city, setCity] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-
+  const [phoneToken, setPhoneToken] = useState<string | null>(null);
   // Step 3: Venue Onboarding Questions
   const [venueType, setVenueType] = useState("");
   const [venueCapacity, setVenueCapacity] = useState("");
-
+  const role = "venue_owner";
   // OTP resend timer
   useEffect(() => {
     let interval: any;
@@ -61,33 +63,50 @@ export default function PartnerRegister() {
     return () => clearInterval(interval);
   }, [otpSent, timer]);
 
-  const handleSendOtp = (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     if (phone.length < 10) {
       setError("Please enter a valid 10-digit mobile number.");
       return;
     }
-    setOtpSent(true);
-    setTimer(30);
+    try {
+      await sendOtp(phone)
+
+      setOtpSent(true);
+      setTimer(30);
+    }
+    catch (error) {
+      setError("Failed to send OTP. Please try again.");
+      console.error(error);
+    }
+
   };
 
-  const handleVerifyOtp = () => {
-    setError("");
-    if (otpValue === "123456" || otpValue.length === 6) {
-      setStep(2);
-    } else {
-      setError("Incorrect OTP. Enter '123456' to pass.");
+  const handleVerifyOtp = async () => {
+    if (otpValue.length < 6) {
+      setError("Please enter a valid  6-digit Otp");
+      return;
+    }
+
+    try {
+      const response = await verifyOtp(phone, otpValue);
+
+      setPhoneToken(response.phoneVerifiedToken);
+      setStep(2)
+    }
+    catch (error) {
+      setError("Failed to verify");
+      console.error(error);
     }
   };
-
   const handleResendOtp = () => {
     setTimer(30);
     setOtpValue("");
     setError("");
   };
 
-  const handleBusinessDetailsSubmit = (e: React.FormEvent) => {
+  const handleBusinessDetailsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -103,40 +122,52 @@ export default function PartnerRegister() {
       setError("Password must be at least 6 characters.");
       return;
     }
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+
+
+    if (!phoneToken) {
+      setError("Please verify OTP first");
       return;
     }
-    if (!venueName.trim()) {
-      setError("Venue Name is required.");
-      return;
+    try {
+      await register(ownerName, phone, businessEmail, password, phoneToken, role);
+
+      setSession({
+        name: ownerName,
+        email: businessEmail,
+        phone,
+        role,
+        isProfileCompleted: false,
+      });
+
+      router.push('/partner/onboarding');
     }
-    if (!city.trim()) {
-      setError("City is required.");
-      return;
+    catch (error) {
+      setError("Failed to register");
+      console.error(error);
     }
 
-    setStep(3);
+
+    // setStep(3);
   };
 
-  const handleCompleteRegistration = (skipped = false) => {
-    // Save partner session
-    setSession({
-      name: ownerName,
-      email: businessEmail,
-      phone: phone,
-      role: "partner"
-    });
+  // const handleCompleteRegistration = (skipped = false) => {
+  //   // Save partner session
+  //   setSession({
+  //     name: ownerName,
+  //     email: businessEmail,
+  //     phone: phone,
+  //     role: "venue_owner"
+  //   });
 
-    // Go to dashboard
-    router.push("/partner/dashboard");
-  };
+  //   // Go to dashboard
+  //   router.push("/partner/dashboard");
+  // };
 
-  const progressPercent = step === 1 ? 33 : step === 2 ? 66 : 100;
+  const progressPercent = step === 1 ? 50 : 100;
 
   return (
     <div className="min-h-screen bg-[#FAFAF8] flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 relative">
-      
+
       {/* Back button */}
       {step > 1 && (
         <button
@@ -164,19 +195,19 @@ export default function PartnerRegister() {
       </div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        
+
         {/* Progress Bar */}
         <div className="mb-4 px-2">
           <div className="flex justify-between text-[10px] font-bold text-neutral-muted uppercase mb-1.5">
-            <span>Step {step} of 3</span>
-            <span>{step === 1 ? "Owner Verify" : step === 2 ? "Business Info" : "Venue Details"}</span>
+            <span>Step {step} of 2</span>
+            <span>{step === 1 ? "Owner Verify" : "Business Info"}</span>
           </div>
           <Progress value={progressPercent} className="h-1 bg-neutral-light" />
         </div>
 
         <Card className="border border-neutral-light shadow-xl bg-white rounded-2xl overflow-hidden">
           <CardContent className="p-6 md:p-8 space-y-5">
-            
+
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl p-3 text-xs flex gap-2 items-center">
                 <ShieldAlert className="h-4 w-4 shrink-0" />
@@ -197,8 +228,8 @@ export default function PartnerRegister() {
                       <div className="flex gap-2">
                         <select className="h-10 border border-input rounded-xl bg-white text-xs px-2 outline-none font-semibold text-neutral-dark">
                           <option>+91 (IN)</option>
-                          <option>+1 (US)</option>
-                          <option>+44 (UK)</option>
+                          {/* <option>+1 (US)</option>
+                          <option>+44 (UK)</option> */}
                         </select>
                         <div className="relative flex-1">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-muted">
@@ -319,7 +350,7 @@ export default function PartnerRegister() {
                       </button>
                     </div>
                   </div>
-
+                  {/* 
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-neutral-muted uppercase">Confirm Password</label>
                     <div className="relative">
@@ -335,9 +366,9 @@ export default function PartnerRegister() {
                         className="pl-9 pr-9 h-10 border-input rounded-xl bg-white"
                       />
                     </div>
-                  </div>
+                  </div> */}
                 </div>
-
+                {/* 
                 <hr className="border-neutral-light my-2" />
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -374,21 +405,21 @@ export default function PartnerRegister() {
                       />
                     </div>
                   </div>
-                </div>
+                </div> */}
 
                 <Button type="submit" className="w-full bg-teal-primary hover:bg-teal-hover text-white py-3 h-auto text-sm font-bold shadow-md shadow-teal-primary/20 rounded-xl mt-2">
-                  Continue Onboarding
+                  Register
                 </Button>
               </form>
             )}
 
             {/* STEP 3: VENUE ONBOARDING QUESTIONS */}
-            {step === 3 && (
+            {/* {step === 3 && (
               <div className="space-y-6 text-center">
                 <div className="h-14 w-14 rounded-2xl bg-amber-light text-amber-cta flex items-center justify-center mx-auto mb-2 animate-bounce">
                   <Sparkles className="h-7 w-7" />
                 </div>
-                
+
                 <div>
                   <h3 className="font-serif font-bold text-lg text-neutral-dark">Tell Us About Your Venue</h3>
                   <p className="text-xs text-neutral-muted mt-1 leading-relaxed">
@@ -440,10 +471,10 @@ export default function PartnerRegister() {
                   </Button>
                 </div>
               </div>
-            )}
+            )} */}
 
             {/* Back to Login link */}
-            {step < 3 && (
+            {step < 2 && (
               <p className="text-center text-xs text-neutral-muted pt-2 border-t border-neutral-light">
                 Already registered?{" "}
                 <Link href="/partner/login" className="font-bold text-teal-primary hover:underline">

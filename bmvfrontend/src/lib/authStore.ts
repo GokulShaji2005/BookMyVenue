@@ -4,7 +4,7 @@ export interface UserSession {
   name: string;
   email: string;
   phone?: string;
-  role: "customer" | "partner";
+  role: "customer" | "venue_owner";
   isProfileCompleted?: boolean;
 }
 

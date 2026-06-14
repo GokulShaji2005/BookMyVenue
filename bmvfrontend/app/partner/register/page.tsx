@@ -1,4 +1,4 @@
-import PartnerRegister from "@/src/partner/auth/PartnerRegister";
+import PartnerRegister from "@/src/partner/auth/register/PartnerRegister";
 
 export default function Page() {
   return <PartnerRegister />;

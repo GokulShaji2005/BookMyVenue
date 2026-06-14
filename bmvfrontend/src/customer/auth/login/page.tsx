@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Eye, EyeOff, Mail, Lock, ShieldAlert } from "lucide-react";
-import { login } from "../route";
+import { login } from "../../../common/auth/route";
 
 export default function Login() {
   const router = useRouter();
@@ -44,7 +44,7 @@ export default function Login() {
         name: data.user.name,
         email: data.user.email,
         phone: data.user.phone,
-        role: (data.user.role === "venue_owner" ? "partner" : "customer") as "customer" | "partner",
+        role: (data.user.role === "venue_owner" ? "venue_owner" : "customer") as "customer" | "venue_owner",
         isProfileCompleted: data.user.isProfileCompleted,
       });
 

@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Eye, EyeOff, Mail, Lock, ShieldAlert } from "lucide-react";
-
+import Login from "@/src/customer/auth/login/page";
+import { login } from "@/src/common/auth/route";
 export default function PartnerLogin() {
   const router = useRouter();
 
@@ -17,13 +18,13 @@ export default function PartnerLogin() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
+    // Validation
     if (!email.includes("@")) {
-      setError("Please enter a valid business email.");
+      setError("Please enter a valid email address.");
       return;
     }
     if (password.length < 6) {
@@ -31,21 +32,31 @@ export default function PartnerLogin() {
       return;
     }
 
-    // Set mock partner session
-    setSession({
-      name: email.split("@")[0].charAt(0).toUpperCase() + email.split("@")[0].slice(1),
-      email: email,
-      phone: "9898989898",
-      role: "partner"
-    });
+    try {
+      const data = await login(email, password)
 
-    // Go to partner dashboard
-    router.push("/partner/dashboard");
+      // Set user session in UI store (secrets/tokens are secured in HttpOnly cookies)
+      setSession({
+        name: data.user.name,
+        email: data.user.email,
+        phone: data.user.phone,
+        role: (data.user.role === "venue_owner" ? "venue_owner" : "customer") as "customer" | "venue_owner",
+        // isProfileCompleted: data.user.isProfileCompleted,
+      });
+
+      // Navigate to return URL or home
+      if (data.user.role === "venue_owner" && !data.user.isProfileCompleted) {
+        router.push("/partner/status");
+      } else {
+        router.push("/partner/dashboard");
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to log in. Please try again.");
+    }
   };
-
   return (
     <div className="min-h-screen bg-[#FAFAF8] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative">
-      
+
       {/* Top right escape link */}
       <div className="absolute top-8 right-8 text-sm font-semibold">
         <Link href="/login" className="text-teal-primary hover:underline flex items-center gap-1">
@@ -69,7 +80,7 @@ export default function PartnerLogin() {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <Card className="border border-neutral-light shadow-xl bg-white rounded-2xl overflow-hidden">
           <CardContent className="p-6 md:p-8 space-y-5">
-            
+
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl p-3 text-xs flex gap-2 items-center">
                 <ShieldAlert className="h-4 w-4 shrink-0" />

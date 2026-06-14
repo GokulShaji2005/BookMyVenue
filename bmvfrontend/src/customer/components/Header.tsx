@@ -58,7 +58,7 @@ export default function Header() {
         <div className="hidden md:flex items-center gap-4">
           {session ? (
             <div className="flex items-center gap-4">
-              {session.role === "partner" ? (
+              {session.role === "venue_owner" ? (
                 <Link href="/partner/dashboard">
                   <Button variant="outline" className="border-teal-primary text-teal-primary hover:bg-teal-light">
                     Partner Dashboard
@@ -154,7 +154,7 @@ export default function Header() {
                 <p className="text-xs text-neutral-muted">Logged in as</p>
                 <p className="text-sm font-semibold text-neutral-dark">{session.name} ({session.role})</p>
               </div>
-              {session.role === "partner" ? (
+              {session.role === "venue_owner" ? (
                 <Link href="/partner/dashboard" onClick={() => setMobileMenuOpen(false)}>
                   <Button className="w-full bg-teal-primary text-white hover:bg-teal-hover">
                     Go to Partner Dashboard
