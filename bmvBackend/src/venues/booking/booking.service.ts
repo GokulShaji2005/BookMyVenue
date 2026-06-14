@@ -107,8 +107,13 @@ export class BookingService {
         return await this.BookingRepo.save(booking);
     }
 
-
-
+    async getCustomerBookings(customerId: string): Promise<Booking[]> {
+        return this.BookingRepo.find({
+            where: { customerId },
+            relations: ['venue', 'venue.images'],
+            order: { createdAt: 'DESC' },
+        });
+    }
 }
 
 

@@ -1,6 +1,7 @@
 import {
     Body,
     Controller,
+    Get,
     HttpCode,
     HttpStatus,
     Param,
@@ -36,6 +37,19 @@ export class BookingController {
         @CurrentUser() user: CurrentUserPayload,
     ) {
         return this.bookingService.createBooking(dto, user.sub);
+    }
+
+    // ─── List My Bookings ──────────────────────────────────────────────────────
+
+    /**
+     * GET /booking/my
+     * Customer retrieves their own booking history.
+     */
+    @Get('my')
+    @HttpCode(HttpStatus.OK)
+    @Roles(UserRole.CUSTOMER)
+    getMyBookings(@CurrentUser() user: CurrentUserPayload) {
+        return this.bookingService.getCustomerBookings(user.sub);
     }
 
     // ─── Cancel Booking ────────────────────────────────────────────────────────

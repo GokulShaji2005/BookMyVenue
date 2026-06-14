@@ -328,7 +328,6 @@ export class VenuesService {
     const canSubmit =
       fresh.stepVenueInfoDone &&
       fresh.stepPhotosDone &&
-      fresh.stepFacilitiesDone &&
       fresh.stepDocumentsDone &&
       (fresh.status === VenueStatus.DRAFT ||
         fresh.status === VenueStatus.CHANGES_REQUESTED);
