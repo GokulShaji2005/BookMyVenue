@@ -7,27 +7,35 @@ import { VenueStatus } from 'src/common/enums/venue-status.enum';
 import { NotFoundException } from '@nestjs/common';
 import { VenueVerificationRequest } from '../entities/venue-verification-request.entity';
 import { VerificationStatus } from 'src/common/enums/verification-status.enum';
+import { VenueNotificationsService } from './venue-notify.service';
+import { User } from 'src/users/entities/user.entity';
+import { UserRole } from 'src/common/enums/user-role.enum';
+import { CustomerProfile } from 'src/users/entities/customer-profile.entity';
+import { VenueImage } from '../entities/venue-image.entity';
+import { VenueDocument } from '../entities/venue-document.entity';
+
 @Injectable()
 export class AdminVenueService {
    constructor(
       @InjectRepository(Venue)
       private readonly venueRepo: Repository<Venue>,
       @InjectRepository(VenueVerificationRequest)
-      private readonly venueVerificationRepo: Repository<VenueVerificationRequest>
+      private readonly venueVerificationRepo: Repository<VenueVerificationRequest>,
+      private readonly notificationsService: VenueNotificationsService,
+      @InjectRepository(User)
+      private readonly userRepo: Repository<User>,
+      @InjectRepository(CustomerProfile)
+      private readonly customerProfileRepo: Repository<CustomerProfile>,
    ) { }
 
    async PendingVenues(): Promise<Venue[]> {
       const pending = await this.venueRepo.find({
          where: {
-
             status: VenueStatus.PENDING_REVIEW
          }
       })
 
-      if (pending.length === 0) {
-         throw new NotFoundException('Pending verifications is not found');
-      }
-      return pending
+      return pending;
    }
 
    async PendingVenueDetails(venueId: string): Promise<Venue> {
@@ -39,7 +47,6 @@ export class AdminVenueService {
          relations: [
             'images',
             'documents',
-
          ],
       })
 
@@ -49,13 +56,13 @@ export class AdminVenueService {
       return pendingDetails;
    }
 
-   async AcceptVerification(requestId: string, review_notes: string): Promise<{
+   async AcceptVerification(venueId: string, review_notes: string): Promise<{
       message: string, status: string, review_notes: string
    }> {
 
       const request = await this.venueVerificationRepo.findOne({
          where: {
-            id: requestId
+            venueId: venueId
          }
       })
 
@@ -82,6 +89,7 @@ export class AdminVenueService {
 
       await this.venueVerificationRepo.save(request)
       await this.venueRepo.save(venue);
+      this.notificationsService.emitStatusChange(venue.id, venue.status, request.reviewNotes);
       return {
          message: `Venue ${venue.venueName} has been verified successfully.`,
          status: venue.status,
@@ -89,13 +97,13 @@ export class AdminVenueService {
       }
    }
 
-   async RejectVerification(requestId: string, review_notes: string): Promise<{
+   async RejectVerification(venueId: string, review_notes: string): Promise<{
       message: string, status: string, review_notes: string
    }> {
 
       const request = await this.venueVerificationRepo.findOne({
          where: {
-            id: requestId
+            venueId: venueId
          }
       })
 
@@ -120,7 +128,7 @@ export class AdminVenueService {
 
       await this.venueVerificationRepo.save(request)
       await this.venueRepo.save(venue);
-
+      this.notificationsService.emitStatusChange(venue.id, venue.status, request.reviewNotes);
       return {
          message: `Venue ${venue.venueName} has been Rejected.`,
          status: venue.status,
@@ -128,7 +136,146 @@ export class AdminVenueService {
       }
    }
 
+   async VenueList(): Promise<{ venueName: string }> {
+      const venue = await this.venueRepo.findOne({
+         where: {
+            status: VenueStatus.APPROVED
+         }
+      })
 
+      if (!venue) {
+         throw new NotFoundException('Venues not found');
+      }
 
+      return {
+         venueName: venue.venueName
+      }
+   }
 
+   async getVenues(status?: VenueStatus): Promise<Venue[]> {
+      const whereClause: any = {};
+      if (status) {
+         whereClause.status = status;
+      }
+      return this.venueRepo.find({
+         where: whereClause,
+         order: { createdAt: 'DESC' },
+      });
+   }
+
+   async getVenueDetails(venueId: string): Promise<Venue> {
+      const venue = await this.venueRepo.findOne({
+         where: { id: venueId },
+      });
+      if (!venue) {
+         throw new NotFoundException('Venue not found');
+      }
+      return venue;
+   }
+
+   async getVenuePhotos(venueId: string): Promise<VenueImage[]> {
+      const venue = await this.venueRepo.findOne({
+         where: { id: venueId },
+         relations: ['images'],
+      });
+      if (!venue) {
+         throw new NotFoundException('Venue not found');
+      }
+      return venue.images || [];
+   }
+
+   async getVenueDocs(venueId: string): Promise<VenueDocument[]> {
+      const venue = await this.venueRepo.findOne({
+         where: { id: venueId },
+         relations: ['documents'],
+      });
+      if (!venue) {
+         throw new NotFoundException('Venue not found');
+      }
+      return venue.documents || [];
+   }
+
+   async getCustomers(): Promise<User[]> {
+      return this.userRepo.find({
+         where: { role: UserRole.CUSTOMER },
+         select: ['id', 'name', 'email', 'phone']
+      });
+   }
+
+   async getCustomerDetails(userId: string): Promise<any> {
+      const customer = await this.userRepo.findOne({
+         where: { id: userId, role: UserRole.CUSTOMER },
+         select: ['id', 'name', 'email', 'phone']
+      });
+      if (!customer) {
+         throw new NotFoundException('Customer not found');
+      }
+
+      const profile = await this.customerProfileRepo.findOne({
+         where: { userId }
+      });
+
+      return {
+         ...customer,
+         profile: profile || null
+      };
+   }
+
+   async getVenueOwners(): Promise<User[]> {
+      return this.userRepo.find({
+         where: { role: UserRole.VENUE_OWNER },
+         select: ['id', 'name', 'email', 'phone']
+      });
+   }
+
+   async getVenueOwnerDetails(userId: string): Promise<any> {
+      const owner = await this.userRepo.findOne({
+         where: { id: userId, role: UserRole.VENUE_OWNER },
+         select: ['id', 'name', 'email', 'phone']
+      });
+      if (!owner) {
+         throw new NotFoundException('Venue owner not found');
+      }
+
+      const venueDetail = await this.venueRepo.findOne({
+         where: {
+            ownerId: userId
+         }
+      })
+
+      if (!venueDetail) {
+         throw new NotFoundException('Venue Details not found');
+      }
+      return {
+         ...owner,
+         venueDetail: venueDetail || null
+      }
+
+   }
+
+   async updateUser(userId: string, updateData: { name?: string; email?: string; phone?: string; isActive?: boolean }): Promise<User> {
+      const user = await this.userRepo.findOne({ where: { id: userId } });
+      if (!user) {
+         throw new NotFoundException('User not found');
+      }
+
+      if (updateData.name !== undefined) user.name = updateData.name;
+      if (updateData.email !== undefined) user.email = updateData.email;
+      if (updateData.phone !== undefined) user.phone = updateData.phone;
+      if (updateData.isActive !== undefined) user.isActive = updateData.isActive;
+
+      const savedUser = await this.userRepo.save(user);
+      const { passwordHash, ...result } = savedUser;
+      return result as User;
+   }
+
+   async deleteUser(userId: string): Promise<{ message: string }> {
+      const user = await this.userRepo.findOne({ where: { id: userId } });
+      if (!user) {
+         throw new NotFoundException('User not found');
+      }
+      user.isActive = false;
+      await this.userRepo.save(user);
+      return { message: 'User deactivated successfully' };
+   }
 }

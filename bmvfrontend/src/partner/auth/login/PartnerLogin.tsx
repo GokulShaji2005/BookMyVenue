@@ -40,14 +40,18 @@ export default function PartnerLogin() {
         name: data.user.name,
         email: data.user.email,
         phone: data.user.phone,
-        role: (data.user.role === "venue_owner" ? "venue_owner" : "customer") as "customer" | "venue_owner",
+        role: (data.user.role === "venue_owner" ? "venue_owner" : "admin") as "admin" | "venue_owner",
         // isProfileCompleted: data.user.isProfileCompleted,
       });
 
       // Navigate to return URL or home
       if (data.user.role === "venue_owner" && !data.user.isProfileCompleted) {
         router.push("/partner/status");
-      } else {
+      }
+      else if (data.user.role === "admin") {
+        router.push("/admin/dashboard");
+      }
+      else {
         router.push("/partner/dashboard");
       }
     } catch (err: any) {

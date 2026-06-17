@@ -15,7 +15,7 @@ import { RegisterUserDto } from './dto/register-user.dto';
 import { OnboardCustomerDto } from './dto/onboard-customer.dto';
 import { UserRole } from '../common/enums/user-role.enum';
 import { AuthService, TokenPair } from '../auth/auth.service';
-
+import { Venue } from 'src/venues/entities/venue.entity';
 const SALT_ROUNDS = 12;
 
 @Injectable()
@@ -23,6 +23,8 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(Venue)
+    private readonly venueRepo: Repository<Venue>,
     @InjectRepository(CustomerProfile)
     private readonly customerProfileRepo: Repository<CustomerProfile>,
     private readonly jwtService: JwtService,   // used to verify phoneVerifiedToken
@@ -141,7 +143,7 @@ export class UsersService {
   async onboardCustomer(
     userId: string,
     dto: OnboardCustomerDto,
-  ): Promise<{ message: string; isProfileCompleted: boolean;}> {
+  ): Promise<{ message: string; isProfileCompleted: boolean; }> {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found.');
@@ -173,4 +175,6 @@ export class UsersService {
       // profile: savedProfile,
     };
   }
+
+
 }

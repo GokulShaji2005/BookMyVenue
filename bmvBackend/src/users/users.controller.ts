@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { OnboardCustomerDto } from './dto/onboard-customer.dto';
@@ -36,4 +36,7 @@ export class UsersController {
   ) {
     return this.usersService.onboardCustomer(user.sub, dto);
   }
+
+
+
 }

@@ -27,6 +27,8 @@ import {
   Maximize,
   Coins
 } from "lucide-react";
+import { MyVenue } from "../route";
+import { Status } from "../route";
 
 export default function PartnerOnboarding() {
   const router = useRouter();
@@ -82,7 +84,7 @@ export default function PartnerOnboarding() {
     setError("");
     try {
       // 1. Fetch current user's venue
-      const myVenue = await apiFetch<any>("/venues/my-venue");
+      const myVenue = await MyVenue();
       setVenue(myVenue);
 
       // Auto fill Step 1 Form if venue exists
@@ -113,7 +115,7 @@ export default function PartnerOnboarding() {
       // DRAFT and CHANGES_REQUESTED: allow into the wizard
 
       // 2. Fetch step progress & status from status endpoint
-      const status = await apiFetch<any>(`/venues/${myVenue.id}/onboarding-status`);
+      const status = await Status(myVenue.id)
       setOnboardingStatus(status);
 
       // 3. Load photos and documents lists

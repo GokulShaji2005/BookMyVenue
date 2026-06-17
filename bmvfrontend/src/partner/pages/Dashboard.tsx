@@ -22,7 +22,7 @@ import {
   Star,
   Loader2
 } from "lucide-react";
-
+import { MyVenue } from "../route";
 export default function Dashboard() {
   const router = useRouter();
   const [session, setSessionState] = useState<UserSession | null>(null);
@@ -39,7 +39,7 @@ export default function Dashboard() {
     // Fetch owner's venue and verify approval status
     const checkOnboardingStatus = async () => {
       try {
-        const venue = await apiFetch<any>("/venues/my-venue");
+        const venue = await MyVenue();
         if (venue.status === "DRAFT") {
           router.push("/partner/onboarding");
           return;
