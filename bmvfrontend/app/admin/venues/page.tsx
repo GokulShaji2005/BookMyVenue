@@ -24,7 +24,7 @@ import { getAdminVenues } from "@/src/admin/route";
 
 const PAGE_SIZE = 10;
 
-const STATUS_FILTERS = ["ALL", "APPROVED", "PENDING_REVIEW", "REJECTED", "DRAFT"];
+const STATUS_FILTERS = ["ALL", "APPROVED", "PENDING_REVIEW", "RESUBMITTED", "REJECTED", "DRAFT"];
 
 interface VenueItem {
   id: string;
@@ -76,13 +76,13 @@ export default function ManageVenuesPage() {
 
   const statusIcon = (status: string) => {
     if (status === "APPROVED") return <CheckCircle className="h-3 w-3 text-emerald-600" />;
-    if (status === "PENDING_REVIEW") return <Clock className="h-3 w-3 text-amber-500" />;
+    if (status === "PENDING_REVIEW" || status === "RESUBMITTED") return <Clock className="h-3 w-3 text-amber-500" />;
     if (status === "REJECTED") return <XCircle className="h-3 w-3 text-red-500" />;
     return null;
   };
 
   const approvedCount = allVenues.filter((v) => v.status === "APPROVED").length;
-  const pendingCount = allVenues.filter((v) => v.status === "PENDING_REVIEW").length;
+  const pendingCount = allVenues.filter((v) => v.status === "PENDING_REVIEW" || v.status === "RESUBMITTED").length;
   const rejectedCount = allVenues.filter((v) => v.status === "REJECTED").length;
 
   return (
@@ -207,12 +207,12 @@ export default function ManageVenuesPage() {
                       <td className="px-5 py-4"><StatusBadge status={venue.status} /></td>
                       <td className="px-5 py-4 text-right">
                         <Link href={
-                          venue.status === "PENDING_REVIEW"
+                          venue.status === "PENDING_REVIEW" || venue.status === "RESUBMITTED"
                             ? `/admin/verification/${venue.id}`
                             : `/admin/venues/${venue.id}`
                         }>
                           <Button size="sm" className="bg-[#0D7377] hover:bg-[#0a5b5e] text-white rounded-lg text-[11px] h-7 px-3 gap-1">
-                            {venue.status === "PENDING_REVIEW" ? "Review" : "View"}
+                            {venue.status === "PENDING_REVIEW" || venue.status === "RESUBMITTED" ? "Review" : "View"}
                             <ArrowRight className="h-3 w-3" />
                           </Button>
                         </Link>

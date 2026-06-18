@@ -27,6 +27,12 @@ export const rejectVerification = (venueId: string, reviewNotes: string) =>
     body: { reviewNotes },
   });
 
+export const requestChangesVerification = (venueId: string, reviewNotes: string) =>
+  apiFetch<any>(`/venues/${venueId}/changes`, {
+    method: "POST",
+    body: { reviewNotes },
+  });
+
 // ─── User Management ──────────────────────────────────────────────────────────
 export const updateUser = (
   id: string,

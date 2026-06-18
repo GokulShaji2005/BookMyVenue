@@ -49,6 +49,16 @@ export class AdminVenueController {
         return this.adminVenue.RejectVerification(venueId, reviewNotes);
     }
 
+    @Post('venues/:venueId/changes')
+    @Roles(UserRole.ADMIN)
+    RequestChanges(
+        @Param('venueId', ParseUUIDPipe) venueId: string,
+        @Body('reviewNotes') reviewNotes: string,
+        @CurrentUser() user: CurrentUserPayload,
+    ) {
+        return this.adminVenue.RequestChanges(venueId, reviewNotes);
+    }
+
     @Get('admin/venues')
     @Roles(UserRole.ADMIN)
     getVenues(@Query('status') status?: VenueStatus) {

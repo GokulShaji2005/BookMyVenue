@@ -35,6 +35,7 @@ import {
 type VenueStatus =
   | "DRAFT"
   | "PENDING_REVIEW"
+  | "RESUBMITTED"
   | "APPROVED"
   | "CHANGES_REQUESTED"
   | "REJECTED";
@@ -107,6 +108,16 @@ const STATUS_CONFIG: Record<
     subtext:
       "Our team is carefully reviewing your submission. This typically takes 1–3 business days.",
   },
+  RESUBMITTED: {
+    label: "Resubmitted",
+    color: "text-indigo-600",
+    bg: "bg-indigo-50",
+    border: "border-indigo-200",
+    icon: <Clock className="h-5 w-5" />,
+    headline: "Application Resubmitted",
+    subtext:
+      "Your updated application has been resubmitted. Our team is reviewing the changes.",
+  },
   APPROVED: {
     label: "Approved",
     color: "text-emerald-600",
@@ -152,6 +163,8 @@ function getActiveProgressStep(status: VenueStatus): number {
     case "DRAFT":
       return 0;
     case "PENDING_REVIEW":
+      return 2;
+    case "RESUBMITTED":
       return 2;
     case "CHANGES_REQUESTED":
       return 2;
@@ -402,7 +415,7 @@ export default function PartnerStatus() {
   const activeStep = getActiveProgressStep(venue.status);
   const isEditable =
     venue.status === "CHANGES_REQUESTED";
-  const canWithdraw = venue.status === "PENDING_REVIEW";
+  const canWithdraw = venue.status === "PENDING_REVIEW" || venue.status === "RESUBMITTED";
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
@@ -565,7 +578,7 @@ export default function PartnerStatus() {
           </div>
 
           {/* Pulsing dot for pending */}
-          {venue.status === "PENDING_REVIEW" && (
+          {(venue.status === "PENDING_REVIEW" || venue.status === "RESUBMITTED") && (
             <div className="flex items-center gap-2 shrink-0">
               <span className="relative flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />

@@ -82,7 +82,7 @@ export class VenuesService {
    * Blocked when status = PENDING_REVIEW (must wait for admin decision).
    */
   async updateVenueInfo(venue: Venue, dto: UpdateVenueInfoDto): Promise<Venue> {
-    if (venue.status === VenueStatus.PENDING_REVIEW) {
+    if (venue.status === VenueStatus.PENDING_REVIEW || venue.status === VenueStatus.RESUBMITTED) {
       throw new ForbiddenException(
         'Venue is currently under review. You cannot edit it until the admin review is complete.',
       );
@@ -99,6 +99,14 @@ export class VenuesService {
     if (!venue) {
       throw new NotFoundException('No venue found for your account.');
     }
+
+    // Fetch latest verification request to append its review notes
+    const lastRequest = await this.verificationRepo.findOne({
+      where: { venueId: venue.id },
+      order: { submissionNumber: 'DESC' },
+    });
+    (venue as any).reviewNotes = lastRequest?.reviewNotes || null;
+
     return venue;
   }
 
@@ -408,10 +416,15 @@ export class VenuesService {
     });
     const submissionNumber = (lastRequest?.submissionNumber ?? 0) + 1;
 
+    const nextStatus =
+      venue.status === VenueStatus.CHANGES_REQUESTED
+        ? VenueStatus.RESUBMITTED
+        : VenueStatus.PENDING_REVIEW;
+
     // Update venue status + create new request row in a transaction
     await this.dataSource.transaction(async (manager) => {
       await manager.update(Venue, venue.id, {
-        status: VenueStatus.PENDING_REVIEW,
+        status: nextStatus,
       });
       await manager.save(
         manager.create(VenueVerificationRequest, {
@@ -426,7 +439,7 @@ export class VenuesService {
     return {
       message: 'Venue submitted for verification successfully.',
       submissionNumber,
-      status: VenueStatus.PENDING_REVIEW,
+      status: nextStatus,
     };
   }
 

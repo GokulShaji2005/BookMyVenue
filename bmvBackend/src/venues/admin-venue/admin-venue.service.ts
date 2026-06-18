@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Venue } from '../entities/venue.entity';
 import { VenueType } from 'src/common/enums/venue-type.enum';
 import { VenueStatus } from 'src/common/enums/venue-status.enum';
@@ -31,7 +31,7 @@ export class AdminVenueService {
    async PendingVenues(): Promise<Venue[]> {
       const pending = await this.venueRepo.find({
          where: {
-            status: VenueStatus.PENDING_REVIEW
+            status: In([VenueStatus.PENDING_REVIEW, VenueStatus.RESUBMITTED])
          }
       })
 
@@ -42,7 +42,7 @@ export class AdminVenueService {
       const pendingDetails = await this.venueRepo.findOne({
          where: {
             id: venueId,
-            status: VenueStatus.PENDING_REVIEW
+            status: In([VenueStatus.PENDING_REVIEW, VenueStatus.RESUBMITTED])
          },
          relations: [
             'images',
@@ -62,18 +62,13 @@ export class AdminVenueService {
 
       const request = await this.venueVerificationRepo.findOne({
          where: {
-            venueId: venueId
+            venueId: venueId,
+            status: VerificationStatus.PENDING
          }
       })
 
       if (!request) {
          throw new NotFoundException("Request is not found");
-      }
-
-      if (request.status != VerificationStatus.PENDING) {
-         throw new BadRequestException(
-            'This request has already been reviewed.',
-         );
       }
       request.status = VerificationStatus.APPROVED;
       request.reviewNotes = review_notes
@@ -103,15 +98,13 @@ export class AdminVenueService {
 
       const request = await this.venueVerificationRepo.findOne({
          where: {
-            venueId: venueId
+            venueId: venueId,
+            status: VerificationStatus.PENDING
          }
       })
 
       if (!request) {
          throw new NotFoundException("Request is not found");
-      }
-      if (request.status != VerificationStatus.PENDING) {
-         throw new BadRequestException('This request has already been reviewed.');
       }
 
       request.status = VerificationStatus.REJECTED;
@@ -131,6 +124,43 @@ export class AdminVenueService {
       this.notificationsService.emitStatusChange(venue.id, venue.status, request.reviewNotes);
       return {
          message: `Venue ${venue.venueName} has been Rejected.`,
+         status: venue.status,
+         review_notes: request.reviewNotes
+      }
+   }
+
+   async RequestChanges(venueId: string, review_notes: string): Promise<{
+      message: string, status: string, review_notes: string
+   }> {
+
+      const request = await this.venueVerificationRepo.findOne({
+         where: {
+            venueId: venueId,
+            status: VerificationStatus.PENDING
+         }
+      })
+
+      if (!request) {
+         throw new NotFoundException("Request is not found");
+      }
+
+      request.status = VerificationStatus.CHANGES_REQUESTED;
+      request.reviewNotes = review_notes;
+      const venue = await this.venueRepo.findOne({
+         where: {
+            id: request.venueId
+         }
+      })
+      if (!venue) {
+         throw new NotFoundException('Venue not found');
+      }
+      venue.status = VenueStatus.CHANGES_REQUESTED;
+
+      await this.venueVerificationRepo.save(request)
+      await this.venueRepo.save(venue);
+      this.notificationsService.emitStatusChange(venue.id, venue.status, request.reviewNotes);
+      return {
+         message: `Changes requested for venue ${venue.venueName}.`,
          status: venue.status,
          review_notes: request.reviewNotes
       }

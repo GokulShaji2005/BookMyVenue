@@ -25,7 +25,8 @@ import {
   ShieldCheck,
   Users,
   Maximize,
-  Coins
+  Coins,
+  Trash2
 } from "lucide-react";
 import { MyVenue } from "../route";
 import { Status } from "../route";
@@ -108,7 +109,7 @@ export default function PartnerOnboarding() {
         router.push("/partner/dashboard");
         return;
       }
-      if (myVenue.status === "PENDING_REVIEW" || myVenue.status === "REJECTED") {
+      if (myVenue.status === "PENDING_REVIEW" || myVenue.status === "RESUBMITTED" || myVenue.status === "REJECTED") {
         router.push("/partner/status");
         return;
       }
@@ -122,11 +123,12 @@ export default function PartnerOnboarding() {
       await loadPhotosAndDocs(myVenue.id);
 
       // Determine step
-      if (!myVenue.stepVenueInfoDone) {
+
+      if (!myVenue.stepVenueInfoDone || myVenue.status === "CHANGES_REQUESTED") {
         setStep(1);
-      } else if (!myVenue.stepPhotosDone) {
+      } else if (!myVenue.stepPhotosDone || myVenue.status === "CHANGES_REQUESTED") {
         setStep(2);
-      } else if (!myVenue.stepDocumentsDone) {
+      } else if (!myVenue.stepDocumentsDone || myVenue.status === "CHANGES_REQUESTED") {
         setStep(3);
       } else {
         setStep(4);
@@ -309,6 +311,44 @@ export default function PartnerOnboarding() {
     }
   };
 
+  const handleDeletePhoto = async (photoId: string) => {
+    if (!venue) return;
+    setStepError("");
+    setIsSubmitting(true);
+    try {
+      await apiFetch(`/venues/${venue.id}/images/${photoId}`, {
+        method: "DELETE",
+      });
+      // Refresh status and list
+      const status = await apiFetch<any>(`/venues/${venue.id}/onboarding-status`);
+      setOnboardingStatus(status);
+      await loadPhotosAndDocs(venue.id);
+    } catch (err: any) {
+      setStepError(err.message || "Failed to delete image.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteDoc = async (docId: string) => {
+    if (!venue) return;
+    setStepError("");
+    setIsSubmitting(true);
+    try {
+      await apiFetch(`/venues/${venue.id}/documents/${docId}`, {
+        method: "DELETE",
+      });
+      // Refresh status and list
+      const status = await apiFetch<any>(`/venues/${venue.id}/onboarding-status`);
+      setOnboardingStatus(status);
+      await loadPhotosAndDocs(venue.id);
+    } catch (err: any) {
+      setStepError(err.message || "Failed to delete document.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const progressPercent = step === 1 ? 25 : step === 2 ? 50 : step === 3 ? 75 : 100;
 
   if (loading) {
@@ -339,6 +379,17 @@ export default function PartnerOnboarding() {
             Complete the 4-step setup to list your space on BookMyVenue.
           </p>
         </div>
+
+        {/* Admin Feedback Notes */}
+        {venue?.status === "CHANGES_REQUESTED" && venue?.reviewNotes && (
+          <div className="max-w-2xl mx-auto mb-6 bg-orange-50 border border-orange-200 text-orange-800 rounded-2xl p-4 flex gap-3 text-xs leading-relaxed shadow-sm">
+            <AlertCircle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5 animate-pulse" />
+            <div>
+              <span className="font-bold block text-orange-950 mb-0.5">Admin Revision Request</span>
+              <p className="text-orange-900">{venue.reviewNotes}</p>
+            </div>
+          </div>
+        )}
 
         {/* Wizard Progress Bar */}
         <div className="mb-8 max-w-2xl mx-auto px-2">
@@ -724,6 +775,14 @@ export default function PartnerOnboarding() {
                             <div className="absolute top-2 left-2 bg-black/60 text-white font-mono font-bold text-[9px] px-2 py-0.5 rounded-md backdrop-blur-xs uppercase border border-white/10">
                               {photo.imageType}
                             </div>
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePhoto(photo.id)}
+                              className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer shadow-md"
+                              title="Delete Photo"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -831,9 +890,19 @@ export default function PartnerOnboarding() {
                                 <span className="text-[10px] text-neutral-muted">Proof Ref: {doc.id.substring(0, 8)}...</span>
                               </div>
                             </div>
-                            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 border border-emerald-100 rounded-md">
-                              Successfully Uploaded
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 border border-emerald-100 rounded-md">
+                                Successfully Uploaded
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteDoc(doc.id)}
+                                className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                                title="Delete Document"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>

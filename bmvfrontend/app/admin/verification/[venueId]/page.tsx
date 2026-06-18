@@ -26,7 +26,7 @@ import { StatusBadge } from "@/src/admin/components/StatusBadge";
 import { VerificationTimeline } from "@/src/admin/components/VerificationTimeline";
 import { ConfirmDialog } from "@/src/admin/components/ConfirmDialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getVenueDetails, acceptVerification, rejectVerification } from "@/src/admin/route";
+import { getVenueDetails, acceptVerification, rejectVerification, requestChangesVerification } from "@/src/admin/route";
 import type { TimelineStep } from "@/src/admin/components/VerificationTimeline";
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -79,8 +79,9 @@ export default function VerificationDetailPage({
     setSubmitError(null);
     try {
       if (action === "approve") {
-
         await acceptVerification(venueId, reviewNotes);
+      } else if (action === "changes") {
+        await requestChangesVerification(venueId, reviewNotes);
       } else {
         await rejectVerification(venueId, reviewNotes);
       }
@@ -108,8 +109,8 @@ export default function VerificationDetailPage({
       {
         status: "UNDER_REVIEW",
         label: "Under Admin Review",
-        completed: v?.status !== "PENDING_REVIEW",
-        active: v?.status === "PENDING_REVIEW",
+        completed: v?.status !== "PENDING_REVIEW" && v?.status !== "RESUBMITTED",
+        active: v?.status === "PENDING_REVIEW" || v?.status === "RESUBMITTED",
       },
     ];
 
@@ -215,7 +216,7 @@ export default function VerificationDetailPage({
   }
 
   const isPending =
-    venue.status === "PENDING_REVIEW" || venue.status === "PENDING";
+    venue.status === "PENDING_REVIEW" || venue.status === "RESUBMITTED" || venue.status === "PENDING";
   const timeline = buildTimeline(venue);
 
   return (

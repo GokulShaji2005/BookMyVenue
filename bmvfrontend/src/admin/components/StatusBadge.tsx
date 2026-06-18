@@ -34,6 +34,11 @@ const statusConfig: Record<
     className: "bg-amber-50 text-amber-700 border-amber-200",
     icon: Clock,
   },
+  RESUBMITTED: {
+    label: "Resubmitted",
+    className: "bg-indigo-50 text-indigo-700 border-indigo-200",
+    icon: Clock,
+  },
   PENDING: {
     label: "Pending",
     className: "bg-amber-50 text-amber-700 border-amber-200",

@@ -46,6 +46,7 @@ export default function Dashboard() {
         }
         if (
           venue.status === "PENDING_REVIEW" ||
+          venue.status === "RESUBMITTED" ||
           venue.status === "CHANGES_REQUESTED" ||
           venue.status === "REJECTED"
         ) {
