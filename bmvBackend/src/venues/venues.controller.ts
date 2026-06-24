@@ -244,8 +244,39 @@ export class VenuesController {
     return this.venuesService.venueBlocking(dto, user.sub, user.role, venueId);
   }
 
-  
+  /**
+   * GET /venues/:venueId/blocked-dates
+   * Get all blocked date ranges for a venue.
+   */
+  @Get('venues/:venueId/blocked-dates')
+  @Roles(UserRole.VENUE_OWNER)
+  @UseGuards(VenueOwnerGuard)
+  getBlockedDates(@Param('venueId', ParseUUIDPipe) venueId: string) {
+    return this.venuesService.getBlockedDates(venueId);
+  }
 
+  /**
+   * DELETE /venues/:venueId/block/:blockId
+   * Unblock a blocked date range.
+   */
+  @Delete('venues/:venueId/block/:blockId')
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.VENUE_OWNER)
+  @UseGuards(VenueOwnerGuard)
+  deleteBlockedDate(
+    @Param('venueId', ParseUUIDPipe) venueId: string,
+    @Param('blockId', ParseUUIDPipe) blockId: string,
+  ) {
+    return this.venuesService.deleteBlockedDate(venueId, blockId);
+  }
 
-
+  /**
+   * GET /venues/my-venue/dashboard-stats
+   * Get revenue and bookings counts for the owner's venue dashboard.
+   */
+  @Get('venues/my-venue/dashboard-stats')
+  @Roles(UserRole.VENUE_OWNER)
+  getMyVenueStats(@CurrentUser() user: CurrentUserPayload) {
+    return this.venuesService.getMyVenueStats(user.sub);
+  }
 }

@@ -1,5 +1,5 @@
-import Home from "@/src/customer/pages/Home";
+import CustomerDashboard from "@/src/customer/pages/Dashboard";
 
 export default function Page() {
-  return <Home />;
+  return <CustomerDashboard />;
 }

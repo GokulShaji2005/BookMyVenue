@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import Header from "../components/Header";
@@ -53,10 +53,30 @@ interface BookingItem {
 
 export default function MyBookings() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const tab = searchParams.get("tab") || "all";
+
   const [session, setSession] = useState<UserSession | null>(null);
   const [bookings, setBookings] = useState<BookingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const filteredBookings = bookings.filter((booking) => {
+    if (tab === "current") {
+      return (
+        booking.bookingStatus === "CONFIRMED" ||
+        booking.bookingStatus === "PENDING_PAYMENT"
+      );
+    }
+    if (tab === "previous") {
+      return (
+        booking.bookingStatus === "COMPLETED" ||
+        booking.bookingStatus === "CANCELLED"
+      );
+    }
+    return true;
+  });
 
   // Cancellation Modal State
   const [selectedBooking, setSelectedBooking] = useState<BookingItem | null>(null);
@@ -194,16 +214,43 @@ export default function MyBookings() {
     return "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&q=80&w=600";
   };
 
-  return (
-    <div className="flex flex-col min-h-screen bg-[#FAFAF8] font-sans">
-      <Header />
+  const isDashboardView = pathname.startsWith("/customer");
 
-      <main className="flex-grow max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 relative">
+  return (
+    <div className={isDashboardView ? "w-full font-sans" : "flex flex-col min-h-screen bg-[#FAFAF8] font-sans"}>
+      {!isDashboardView && <Header />}
+
+      <main className={isDashboardView ? "py-2 relative w-full" : "flex-grow max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 relative"}>
         <div className="mb-8">
           <h1 className="font-serif text-3xl sm:text-4xl font-bold text-neutral-dark">My Bookings</h1>
           <p className="text-sm text-neutral-muted mt-2">
             View your event reservations, check statuses, and manage cancellations.
           </p>
+        </div>
+
+        {/* Tab Selection */}
+        <div className="flex border-b border-neutral-light mb-6">
+          {(["all", "current", "previous"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => {
+                const params = new URLSearchParams(searchParams.toString());
+                if (t === "all") {
+                  params.delete("tab");
+                } else {
+                  params.set("tab", t);
+                }
+                router.push(`${pathname}?${params.toString()}`);
+              }}
+              className={`py-3 px-4 text-xs font-bold uppercase tracking-wider border-b-2 -mb-px transition-all ${
+                tab === t
+                  ? "border-teal-primary text-teal-primary font-bold"
+                  : "border-transparent text-neutral-muted hover:text-neutral-dark"
+              }`}
+            >
+              {t === "all" ? "All Bookings" : t === "current" ? "Current Bookings" : "Previous Bookings"}
+            </button>
+          ))}
         </div>
 
         {error && (
@@ -244,7 +291,7 @@ export default function MyBookings() {
               </Card>
             ))}
           </div>
-        ) : bookings.length === 0 ? (
+        ) : filteredBookings.length === 0 ? (
           // EMPTY STATE
           <div className="bg-white border border-neutral-light rounded-3xl p-12 text-center flex flex-col items-center max-w-xl mx-auto shadow-sm my-8">
             <div className="h-16 w-16 rounded-full bg-teal-light text-teal-primary flex items-center justify-center mb-6">
@@ -255,7 +302,7 @@ export default function MyBookings() {
               You haven't made any reservations. Find the perfect venue and secure your date today!
             </p>
             <Link href="/venues" className="w-full">
-              <Button className="w-full bg-teal-primary text-white hover:bg-teal-hover py-3 h-auto font-bold rounded-xl shadow-md shadow-teal-primary/20 flex items-center justify-center gap-1.5">
+              <Button className="w-full bg-[#0D7377] text-white hover:bg-[#0a5b5e] py-3 h-auto font-bold rounded-xl shadow-md shadow-teal-primary/20 flex items-center justify-center gap-1.5">
                 Browse Live Venues <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
@@ -263,7 +310,7 @@ export default function MyBookings() {
         ) : (
           // BOOKINGS LIST
           <div className="space-y-5">
-            {bookings.map((booking) => (
+            {filteredBookings.map((booking) => (
               <Card
                 key={booking.bookingId}
                 className="border border-neutral-light bg-white rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-shadow"
@@ -436,7 +483,7 @@ export default function MyBookings() {
         </div>
       )}
 
-      <Footer />
+      {!isDashboardView && <Footer />}
     </div>
   );
 }

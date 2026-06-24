@@ -1,4 +1,4 @@
-import { IsUUID, IsString, IsNotEmpty, IsOptional, Matches, MaxLength } from 'class-validator';
+import { IsUUID, IsString, IsNotEmpty, IsOptional, Matches, MaxLength, IsIn } from 'class-validator';
 
 export class CreateBookingDto {
   @IsUUID('4', { message: 'venueId must be a valid UUID' })
@@ -23,4 +23,35 @@ export class CancelBookingDto {
   @IsNotEmpty({ message: 'cancellationReason is required' })
   @MaxLength(500, { message: 'cancellationReason cannot exceed 500 characters' })
   cancellationReason: string;
+}
+
+export class VerifyPaymentDto {
+  @IsString({ message: 'orderId must be a string' })
+  @IsNotEmpty({ message: 'orderId is required' })
+  orderId: string;
+
+  @IsString({ message: 'paymentId must be a string' })
+  @IsNotEmpty({ message: 'paymentId is required' })
+  paymentId: string;
+
+  @IsString({ message: 'signature must be a string' })
+  @IsNotEmpty({ message: 'signature is required' })
+  signature: string;
+}
+
+export class CancelPaymentDto {
+  @IsString({ message: 'orderId must be a string' })
+  @IsNotEmpty({ message: 'orderId is required' })
+  orderId: string;
+}
+
+export class MockPayDto {
+  @IsString({ message: 'orderId must be a string' })
+  @IsNotEmpty({ message: 'orderId is required' })
+  orderId: string;
+
+  @IsString({ message: 'status must be a string' })
+  @IsNotEmpty({ message: 'status is required' })
+  @IsIn(['SUCCESS', 'FAIL'], { message: 'status must be either SUCCESS or FAIL' })
+  status: 'SUCCESS' | 'FAIL';
 }

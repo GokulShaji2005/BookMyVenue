@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -70,11 +70,14 @@ type OnboardingFormValues = z.infer<typeof onboardingSchema>;
 
 export default function Profile() {
   const router = useRouter();
+  const pathname = usePathname();
   const [session, setSessionState] = useState<UserSession | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState("");
   const [success, setSuccess] = useState(false);
+
+  const [loadingProfileData, setLoadingProfileData] = useState(false);
 
   // Load session on mount
   useEffect(() => {
@@ -82,16 +85,17 @@ export default function Profile() {
     setSessionState(currentSession);
     setLoadingSession(false);
 
-    // If user is logged in and profile is already completed, redirect to customer dashboard
-    if (currentSession && currentSession.isProfileCompleted) {
+    // If user is logged in and profile is already completed, but they are NOT in the dashboard profile path, redirect them
+    if (currentSession && currentSession.isProfileCompleted && pathname !== "/customer/profile") {
       router.push("/customer");
     }
-  }, [router]);
+  }, [router, pathname]);
 
   // Set up React Hook Form
   const {
     register: registerField,
     handleSubmit,
+    reset,
     formState: { errors }
   } = useForm<OnboardingFormValues>({
     resolver: zodResolver(onboardingSchema),
@@ -104,6 +108,44 @@ export default function Profile() {
       googleLocationUrl: ""
     }
   });
+
+  // Fetch profile data if already completed
+  useEffect(() => {
+    if (session && session.isProfileCompleted) {
+      const fetchProfile = async () => {
+        setLoadingProfileData(true);
+        try {
+          const data = await apiFetch<{
+            user: any;
+            profile: {
+              addressLine1: string;
+              addressLine2?: string;
+              city: string;
+              state: string;
+              pincode: string;
+              googleLocationUrl?: string;
+            } | null;
+          }>("/users/customer/profile");
+
+          if (data.profile) {
+            reset({
+              addressLine1: data.profile.addressLine1 || "",
+              addressLine2: data.profile.addressLine2 || "",
+              city: data.profile.city || "",
+              state: data.profile.state || "",
+              pincode: data.profile.pincode || "",
+              googleLocationUrl: data.profile.googleLocationUrl || "",
+            });
+          }
+        } catch (err: any) {
+          setApiError(err.message || "Failed to load existing profile details.");
+        } finally {
+          setLoadingProfileData(false);
+        }
+      };
+      fetchProfile();
+    }
+  }, [session, reset]);
 
   const onSubmit = async (values: OnboardingFormValues) => {
     setIsSubmitting(true);
@@ -139,9 +181,15 @@ export default function Profile() {
       }
 
       setSuccess(true);
-      setTimeout(() => {
-        router.push("/customer");
-      }, 1500);
+      if (pathname !== "/customer/profile") {
+        setTimeout(() => {
+          router.push("/customer");
+        }, 1500);
+      } else {
+        setTimeout(() => {
+          setSuccess(false);
+        }, 2500);
+      }
     } catch (err: any) {
       setApiError(err.message || "Failed to complete onboarding. Please check your inputs.");
     } finally {
@@ -187,51 +235,32 @@ export default function Profile() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-[#FAFAF8] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
-      
-      {/* Decorative background shapes */}
-      <div className="absolute top-0 left-0 w-96 h-96 bg-teal-light rounded-full mix-blend-multiply filter blur-3xl opacity-30 -translate-x-1/2 -translate-y-1/2" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-amber-light rounded-full mix-blend-multiply filter blur-3xl opacity-30 translate-x-1/2 translate-y-1/2" />
+  const isDashboardView = pathname === "/customer/profile";
+  const isUpdate = session?.isProfileCompleted;
 
-      <div className="sm:mx-auto sm:w-full sm:max-w-xl relative z-10">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-block font-serif text-3xl font-bold tracking-tight text-teal-primary mb-3">
-            Book<span className="text-amber-cta">My</span>Venue
-          </Link>
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <div className="h-9 w-9 rounded-full bg-teal-light flex items-center justify-center text-teal-primary animate-bounce">
-              <MapPin className="h-5 w-5" />
+  const formContent = (
+    <Card className={isDashboardView ? "border border-[#E2E2DE] shadow-xs bg-white rounded-2xl" : "border border-neutral-light shadow-2xl bg-white rounded-2xl overflow-hidden"}>
+      <CardContent className={isDashboardView ? "p-6 space-y-6" : "p-6 sm:p-10 space-y-6"}>
+        
+        {/* Show success message */}
+        {success ? (
+          <div className="py-8 text-center space-y-4">
+            <div className="mx-auto h-16 w-16 rounded-full bg-teal-light flex items-center justify-center text-teal-primary animate-pulse">
+              <CheckCircle className="h-10 w-10" />
             </div>
-            <h2 className="text-2xl sm:text-3xl font-serif font-bold text-neutral-dark">Complete Your Profile</h2>
-          </div>
-          <p className="text-sm text-neutral-muted max-w-sm mx-auto">
-            Please provide your location details to continue to the dashboard.
-          </p>
-        </div>
-      </div>
-
-      <div className="sm:mx-auto sm:w-full sm:max-w-xl relative z-10 animate-slide-up">
-        <Card className="border border-neutral-light shadow-2xl bg-white rounded-2xl overflow-hidden">
-          <CardContent className="p-6 sm:p-10 space-y-6">
-            
-            {/* Show success message */}
-            {success ? (
-              <div className="py-8 text-center space-y-4">
-                <div className="mx-auto h-16 w-16 rounded-full bg-teal-light flex items-center justify-center text-teal-primary animate-pulse">
-                  <CheckCircle className="h-10 w-10" />
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-2xl font-serif font-bold text-neutral-dark">Setup Complete!</h3>
-                  <p className="text-sm text-neutral-muted">
-                    Your location details have been saved. Redirecting to the dashboard...
-                  </p>
-                </div>
-                <div className="flex justify-center pt-2">
-                  <Loader2 className="h-5 w-5 animate-spin text-teal-primary" />
-                </div>
+            <div className="space-y-2">
+              <h3 className="text-2xl font-serif font-bold text-neutral-dark">{isUpdate ? "Profile Updated!" : "Setup Complete!"}</h3>
+              <p className="text-sm text-neutral-muted">
+                {isUpdate ? "Your profile details have been saved." : "Your location details have been saved. Redirecting to the dashboard..."}
+              </p>
+            </div>
+            {!isUpdate && (
+              <div className="flex justify-center pt-2">
+                <Loader2 className="h-5 w-5 animate-spin text-teal-primary" />
               </div>
-            ) : (
+            )}
+          </div>
+        ) : (
               <>
                 {/* Show validation or API error */}
                 {apiError && (
@@ -370,17 +399,17 @@ export default function Profile() {
                   {/* CTA Submit Button */}
                   <Button
                     type="submit"
-                    disabled={isSubmitting}
-                    className="w-full bg-teal-primary hover:bg-teal-hover text-white py-3 h-auto text-sm font-bold shadow-md shadow-teal-primary/25 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all duration-200 mt-2"
+                     disabled={isSubmitting}
+                    className="w-full bg-[#0D7377] hover:bg-[#0a5b5e] text-white py-3 h-auto text-sm font-bold shadow-md shadow-[#0D7377]/25 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all duration-200 mt-2"
                   >
                     {isSubmitting ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Saving Location details...
+                        {isUpdate ? "Updating Profile..." : "Saving Location details..."}
                       </>
                     ) : (
                       <>
-                        Complete Setup
+                        {isUpdate ? "Update Profile" : "Complete Setup"}
                         <ArrowRight className="h-4 w-4" />
                       </>
                     )}
@@ -391,7 +420,54 @@ export default function Profile() {
             
           </CardContent>
         </Card>
-      </div>
-    </div>
-  );
-}
+      );
+
+      if (isDashboardView) {
+        return (
+          <div className="max-w-xl mx-auto space-y-6">
+            <div className="space-y-1">
+              <h2 className="font-serif text-2xl font-bold text-[#1A1A19]">Profile Information</h2>
+              <p className="text-xs text-[#70706e]">Update your address and Google Maps location details below.</p>
+            </div>
+            {loadingProfileData ? (
+              <div className="py-12 flex justify-center items-center">
+                <Loader2 className="h-6 w-6 animate-spin text-[#0D7377] mr-2" />
+                <span className="text-xs text-[#70706e] font-semibold">Loading profile details...</span>
+              </div>
+            ) : (
+              formContent
+            )}
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen bg-[#FAFAF8] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
+          
+          {/* Decorative background shapes */}
+          <div className="absolute top-0 left-0 w-96 h-96 bg-teal-light rounded-full mix-blend-multiply filter blur-3xl opacity-30 -translate-x-1/2 -translate-y-1/2" />
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-amber-light rounded-full mix-blend-multiply filter blur-3xl opacity-30 translate-x-1/2 translate-y-1/2" />
+
+          <div className="sm:mx-auto sm:w-full sm:max-w-xl relative z-10">
+            <div className="text-center mb-8">
+              <Link href="/" className="inline-block font-serif text-3xl font-bold tracking-tight text-[#0D7377] mb-3">
+                Book<span className="text-[#F4A261]">My</span>Venue
+              </Link>
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <div className="h-9 w-9 rounded-full bg-[#E6F1F1] flex items-center justify-center text-[#0D7377] animate-bounce">
+                  <MapPin className="h-5 w-5" />
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-serif font-bold text-neutral-dark">Complete Your Profile</h2>
+              </div>
+              <p className="text-sm text-neutral-muted max-w-sm mx-auto">
+                Please provide your location details to continue to the dashboard.
+              </p>
+            </div>
+          </div>
+
+          <div className="sm:mx-auto sm:w-full sm:max-w-xl relative z-10 animate-slide-up">
+            {formContent}
+          </div>
+        </div>
+      );
+    }

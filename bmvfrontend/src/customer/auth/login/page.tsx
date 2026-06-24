@@ -48,11 +48,21 @@ export default function Login() {
         isProfileCompleted: data.user.isProfileCompleted,
       });
 
-      // Navigate to return URL or home
-      if (data.user.role === "customer" && !data.user.isProfileCompleted) {
-        router.push("/customer/profile");
+      // Navigate to return URL or default dashboard
+      if (data.user.role === "customer") {
+        if (!data.user.isProfileCompleted) {
+          router.push("/customer/profile");
+        } else if (returnUrl && returnUrl !== "/") {
+          router.push(returnUrl);
+        } else {
+          router.push("/customer");
+        }
       } else {
-        router.push('/venues');
+        if (returnUrl && returnUrl !== "/") {
+          router.push(returnUrl);
+        } else {
+          router.push("/partner/dashboard");
+        }
       }
     } catch (err: any) {
       setError(err.message || "Failed to log in. Please try again.");

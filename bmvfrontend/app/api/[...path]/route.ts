@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-const BACKEND_URL = process.env.BACKEND_INTERNAL_URL || "http://localhost:5000/api";
+const BACKEND_URL = process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:5000/api";
 
 async function handleProxy(req: NextRequest, { params }: { params: Promise<{ path: string[] }> | { path: string[] } }) {
   // In Next.js 15+, params is a Promise. Let's await it to be compatible.

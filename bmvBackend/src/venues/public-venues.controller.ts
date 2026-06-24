@@ -23,4 +23,16 @@ export class PublicVenuesController {
   getPublicVenueDetail(@Param('id', ParseUUIDPipe) id: string) {
     return this.venuesService.findPublicVenueDetail(id);
   }
+
+  /**
+   * GET /venues/public/:id/check-availability
+   * Check if a specific date is available (not booked or blocked).
+   */
+  @Get(':id/check-availability')
+  checkAvailability(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('date') date: string,
+  ) {
+    return this.venuesService.checkAvailability(id, date);
+  }
 }

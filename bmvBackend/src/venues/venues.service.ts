@@ -481,7 +481,7 @@ export class VenuesService {
       query.andWhere(`venue.id NOT IN (
         SELECT b.venue_id FROM bookings b
         WHERE b.booking_date = :date
-        AND b.booking_status != 'CANCELLED'
+        AND b.booking_status IN ('PENDING_PAYMENT', 'CONFIRMED')
       )`, { date });
 
       // Exclude venues that are blocked (range covers the requested date)
@@ -607,5 +607,101 @@ export class VenuesService {
     });
 
     return await this.VenueBlockedRepo.save(blockedRange);
+  }
+
+  /**
+   * Get all blocked date ranges for a venue.
+   */
+  async getBlockedDates(venueId: string): Promise<VenueBlockedDate[]> {
+    return this.VenueBlockedRepo.find({
+      where: { venueId },
+      order: { startDate: 'ASC' },
+    });
+  }
+
+  /**
+   * Delete a blocked date range.
+   */
+  async deleteBlockedDate(venueId: string, blockId: string): Promise<{ message: string }> {
+    const block = await this.VenueBlockedRepo.findOne({
+      where: { id: blockId, venueId }
+    });
+    if (!block) {
+      throw new NotFoundException('Blocked date range not found.');
+    }
+    await this.VenueBlockedRepo.remove(block);
+    return { message: 'Date range unblocked successfully.' };
+  }
+
+  /**
+   * Get dashboard statistics for the owner's venue.
+   */
+  async getMyVenueStats(ownerId: string): Promise<any> {
+    const venue = await this.venueRepo.findOne({
+      where: { ownerId }
+    });
+    if (!venue) {
+      throw new NotFoundException('Venue not found for this partner.');
+    }
+
+    const bookings = await this.BookingRepo.find({
+      where: { venueId: venue.id }
+    });
+
+    const totalBookings = bookings.length;
+    const confirmedBookings = bookings.filter(b => b.bookingStatus === 'CONFIRMED').length;
+    const cancelledBookings = bookings.filter(b => b.bookingStatus === 'CANCELLED').length;
+    
+    // Sum of paid amount
+    const grossEarnings = bookings
+      .filter(b => b.paymentStatus === 'PAID' && b.bookingStatus !== 'CANCELLED')
+      .reduce((sum, b) => sum + Number(b.totalAmount), 0);
+
+    return {
+      totalBookings,
+      confirmedBookings,
+      cancelledBookings,
+      grossEarnings,
+      averageRating: 4.8, // static rating since reviews are not modeled yet
+    };
+  }
+
+  /**
+   * Check if a venue is available on a specific date.
+   * Walks through booking dates and blocked dates.
+   */
+  async checkAvailability(venueId: string, dateStr: string): Promise<{ available: boolean; reason?: string }> {
+    if (!dateStr) {
+      throw new BadRequestException('Date query parameter is required.');
+    }
+
+    // 1. Walk through bookings
+    // Check if there is any booking for this venue on the given date
+    // that is CONFIRMED or PENDING_PAYMENT.
+    const activeBooking = await this.BookingRepo.findOne({
+      where: {
+        venueId,
+        bookingDate: dateStr,
+        bookingStatus: In([BookingStatus.CONFIRMED, BookingStatus.PENDING_PAYMENT]),
+      },
+    });
+
+    if (activeBooking) {
+      return { available: false, reason: 'ALREADY_BOOKED' };
+    }
+
+    // 2. Walk through blocked dates
+    // Find if the date falls within any blocked date range
+    const blockedDate = await this.VenueBlockedRepo.createQueryBuilder('blocked')
+      .where('blocked.venueId = :venueId', { venueId })
+      .andWhere('blocked.startDate <= :dateStr', { dateStr })
+      .andWhere('blocked.endDate >= :dateStr', { dateStr })
+      .getOne();
+
+    if (blockedDate) {
+      return { available: false, reason: blockedDate.reason || 'BLOCKED' };
+    }
+
+    return { available: true };
   }
 }

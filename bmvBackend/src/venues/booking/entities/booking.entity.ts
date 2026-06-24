@@ -14,11 +14,11 @@ export enum BookingStatus {
     PENDING_PAYMENT = 'PENDING_PAYMENT',
     CONFIRMED = 'CONFIRMED',
     CANCELLED = 'CANCELLED',
-    COMPLETED = 'COMPLETED',
+    PAYMENT_FAILED = 'PAYMENT_FAILED',
+    EXPIRED = 'EXPIRED',
 }
 
 export enum PaymentStatus {
-    NOT_PAID = 'NOT_PAID',
     PENDING = 'PENDING',
     PAID = 'PAID',
     FAILED = 'FAILED',
@@ -36,7 +36,7 @@ export enum CancelledBy {
 // Index to prevent double-booking active reservations
 @Index('UQ_venue_active_booking_date', ['venueId', 'bookingDate'], {
     unique: true,
-    where: `"booking_status" != 'CANCELLED'`,
+    where: `"booking_status" IN ('PENDING_PAYMENT', 'CONFIRMED')`,
 })
 export class Booking {
     @PrimaryGeneratedColumn('uuid')
@@ -110,4 +110,10 @@ export class Booking {
 
     @UpdateDateColumn({ name: 'updated_at' })
     updatedAt: Date;
+
+    @Column({
+        type: 'timestamptz',
+        nullable: true
+    })
+    lockedUntil: Date | null;
 }

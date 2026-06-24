@@ -37,6 +37,15 @@ export class UsersController {
     return this.usersService.onboardCustomer(user.sub, dto);
   }
 
-
-
+  /**
+   * GET /users/customer/profile
+   * Get customer profile and user account details.
+   */
+  @Get('customer/profile')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CUSTOMER)
+  @HttpCode(HttpStatus.OK)
+  getCustomerProfile(@CurrentUser() user: CurrentUserPayload) {
+    return this.usersService.getCustomerProfile(user.sub);
+  }
 }

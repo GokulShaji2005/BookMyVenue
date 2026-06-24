@@ -42,6 +42,37 @@ export default function BookingConfirm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState("");
 
+  // Checkout Modal State
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [orderMetadata, setOrderMetadata] = useState<any>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(600); // 10 minutes in seconds
+  const [paymentMethod, setPaymentMethod] = useState<'upi' | 'card' | 'qr'>('upi');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [checkoutError, setCheckoutError] = useState("");
+
+  // Countdown Timer Effect
+  useEffect(() => {
+    if (!showCheckout || !orderMetadata?.lockedUntil) return;
+
+    const timer = setInterval(() => {
+      const lockTime = new Date(orderMetadata.lockedUntil).getTime();
+      const now = new Date().getTime();
+      const remainingSeconds = Math.max(0, Math.floor((lockTime - now) / 1000));
+      
+      setTimeLeft(remainingSeconds);
+
+      if (remainingSeconds <= 0) {
+        clearInterval(timer);
+        setCheckoutError("Reservation lock has expired. Please try booking again.");
+        setTimeout(() => {
+          handleCancelCheckout();
+        }, 4000);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [showCheckout, orderMetadata]);
+
   useEffect(() => {
     const activeSession = getSession();
     setSession(activeSession);
@@ -63,6 +94,68 @@ export default function BookingConfirm() {
     }
   }, [router]);
 
+  const handleCancelCheckout = async () => {
+    if (orderMetadata?.orderId) {
+      try {
+        await apiFetch<any>("/booking/cancel-payment", {
+          method: "POST",
+          body: { orderId: orderMetadata.orderId },
+        });
+      } catch (err) {
+        console.error("Failed to release lock on server:", err);
+      }
+    }
+    setShowCheckout(false);
+    setOrderMetadata(null);
+    setCheckoutError("");
+  };
+
+  const handleMockPayment = async () => {
+    if (!orderMetadata?.orderId) return;
+
+    setIsProcessingPayment(true);
+    setCheckoutError("");
+
+    try {
+      // 1. Simulate payment completion on the server
+      const payResponse = await apiFetch<any>("/booking/mock-pay", {
+        method: "POST",
+        body: {
+          orderId: orderMetadata.orderId,
+          status: "SUCCESS"
+        }
+      });
+
+      if (!payResponse.signature) {
+        throw new Error(payResponse.message || "Payment simulation failed");
+      }
+
+      // 2. Call verification endpoint with credentials
+      const verifyResponse = await apiFetch<any>("/booking/verify-payment", {
+        method: "POST",
+        body: {
+          orderId: payResponse.orderId,
+          paymentId: payResponse.paymentId,
+          signature: payResponse.signature
+        }
+      });
+
+      if (!verifyResponse.success) {
+        throw new Error(verifyResponse.message || "Payment verification failed");
+      }
+
+      // 3. Complete booking confirmation successfully
+      localStorage.removeItem("bmv_pending_booking");
+      setBookingId(orderMetadata.bookingReference || orderMetadata.bookingId);
+      setIsSuccess(true);
+      setShowCheckout(false);
+    } catch (err: any) {
+      setCheckoutError(err.message || "Payment failed. Please try again.");
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
   const handleConfirmBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pending) return;
@@ -80,14 +173,22 @@ export default function BookingConfirm() {
         },
       });
 
-      // Clear pending booking
-      localStorage.removeItem("bmv_pending_booking");
+      // Show Razorpay mock checkout modal with order details
+      setOrderMetadata({
+        bookingId: response.bookingId,
+        bookingReference: response.bookingReference,
+        orderId: response.orderId,
+        amount: response.amount,
+        lockedUntil: response.lockedUntil
+      });
       
-      // Use bookingReference as display ID (e.g. BMV-XXXXXX)
-      setBookingId(response.bookingReference || response.bookingId);
-      setIsSuccess(true);
+      const lockTime = new Date(response.lockedUntil).getTime();
+      const now = new Date().getTime();
+      setTimeLeft(Math.max(0, Math.floor((lockTime - now) / 1000)));
+      setCheckoutError("");
+      setShowCheckout(true);
     } catch (err: any) {
-      setApiError(err.message || "Failed to confirm booking. Please try again.");
+      setApiError(err.message || "Failed to initiate booking. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -299,6 +400,154 @@ export default function BookingConfirm() {
                     </div>
                   </CardContent>
                 </Card>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MOCK RAZORPAY CHECKOUT MODAL */}
+        {showCheckout && orderMetadata && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-scale-in border border-neutral-light">
+              
+              {/* Header with Razorpay Logo and Timer */}
+              <div className="bg-[#0f172a] text-white px-6 py-5 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] tracking-wider uppercase font-bold text-neutral-muted block leading-none mb-1">Payment Portal</span>
+                  <h3 className="font-sans font-extrabold text-lg flex items-center gap-1.5">
+                    <span className="text-teal-primary font-bold">BookMyVenue</span> Pay
+                  </h3>
+                </div>
+                <div className="bg-white/10 px-3 py-1.5 rounded-lg flex items-center gap-1.5 border border-white/10">
+                  <Clock className="h-4 w-4 text-amber-cta" />
+                  <span className="font-mono font-bold text-sm tracking-wide">
+                    {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Order Details & Summary */}
+              <div className="px-6 py-4 bg-[#f8fafc] border-b border-neutral-light flex justify-between items-center text-xs">
+                <div>
+                  <span className="text-neutral-muted block">Order ID</span>
+                  <span className="font-mono font-bold text-neutral-dark">{orderMetadata.orderId}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-neutral-muted block">Amount Due</span>
+                  <span className="text-sm font-extrabold text-teal-primary">₹{Number(orderMetadata.amount).toLocaleString("en-IN")}</span>
+                </div>
+              </div>
+
+              {/* Payment Options */}
+              <div className="p-6 space-y-4">
+                {checkoutError && (
+                  <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl p-3.5 text-xs flex gap-2 items-start">
+                    <ShieldAlert className="h-4.5 w-4.5 shrink-0 mt-0.5" />
+                    <span>{checkoutError}</span>
+                  </div>
+                )}
+
+                <label className="text-[10px] uppercase font-bold text-neutral-muted block">Select Payment Method</label>
+                
+                <div className="grid grid-cols-1 gap-3">
+                  {/* UPI Option */}
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('upi')}
+                    className={`flex items-center gap-4 p-4 border rounded-xl text-left cursor-pointer transition-all ${
+                      paymentMethod === 'upi'
+                        ? 'border-teal-primary bg-teal-light/20 ring-1 ring-teal-primary'
+                        : 'border-neutral-light hover:border-neutral-muted bg-white'
+                    }`}
+                  >
+                    <div className={`h-4.5 w-4.5 rounded-full border flex items-center justify-center ${
+                      paymentMethod === 'upi' ? 'border-teal-primary' : 'border-neutral-muted'
+                    }`}>
+                      {paymentMethod === 'upi' && <div className="h-2.5 w-2.5 rounded-full bg-teal-primary" />}
+                    </div>
+                    <div>
+                      <span className="font-bold text-sm text-neutral-dark block">UPI / Instant Pay</span>
+                      <span className="text-xs text-neutral-muted">Google Pay, PhonePe, Paytm</span>
+                    </div>
+                  </button>
+
+                  {/* Card Option */}
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('card')}
+                    className={`flex items-center gap-4 p-4 border rounded-xl text-left cursor-pointer transition-all ${
+                      paymentMethod === 'card'
+                        ? 'border-teal-primary bg-teal-light/20 ring-1 ring-teal-primary'
+                        : 'border-neutral-light hover:border-neutral-muted bg-white'
+                    }`}
+                  >
+                    <div className={`h-4.5 w-4.5 rounded-full border flex items-center justify-center ${
+                      paymentMethod === 'card' ? 'border-teal-primary' : 'border-neutral-muted'
+                    }`}>
+                      {paymentMethod === 'card' && <div className="h-2.5 w-2.5 rounded-full bg-teal-primary" />}
+                    </div>
+                    <div>
+                      <span className="font-bold text-sm text-neutral-dark block">Credit or Debit Card</span>
+                      <span className="text-xs text-neutral-muted">Visa, Mastercard, RuPay, Amex</span>
+                    </div>
+                  </button>
+
+                  {/* QR Option */}
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('qr')}
+                    className={`flex items-center gap-4 p-4 border rounded-xl text-left cursor-pointer transition-all ${
+                      paymentMethod === 'qr'
+                        ? 'border-teal-primary bg-teal-light/20 ring-1 ring-teal-primary'
+                        : 'border-neutral-light hover:border-neutral-muted bg-white'
+                    }`}
+                  >
+                    <div className={`h-4.5 w-4.5 rounded-full border flex items-center justify-center ${
+                      paymentMethod === 'qr' ? 'border-teal-primary' : 'border-neutral-muted'
+                    }`}>
+                      {paymentMethod === 'qr' && <div className="h-2.5 w-2.5 rounded-full bg-teal-primary" />}
+                    </div>
+                    <div>
+                      <span className="font-bold text-sm text-neutral-dark block">Scan QR Code</span>
+                      <span className="text-xs text-neutral-muted">Scan with any UPI app to pay</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="px-6 py-4 bg-[#f8fafc] border-t border-neutral-light flex gap-3">
+                <Button
+                  type="button"
+                  onClick={handleCancelCheckout}
+                  disabled={isProcessingPayment}
+                  variant="outline"
+                  className="flex-1 border-input text-neutral-dark hover:bg-neutral-light rounded-xl h-11 font-bold text-sm cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleMockPayment}
+                  disabled={isProcessingPayment || timeLeft <= 0}
+                  className="flex-1 bg-teal-primary text-white hover:bg-teal-hover rounded-xl h-11 font-bold text-sm shadow-md shadow-teal-primary/20 flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  {isProcessingPayment ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="h-4 w-4" />
+                      Pay Now
+                    </>
+                  )}
+                </Button>
+              </div>
+              
+              <div className="pb-3 text-center text-[10px] text-neutral-muted">
+                🛡 Secured by BookMyVenue Sandbox Protocol
               </div>
             </div>
           </div>

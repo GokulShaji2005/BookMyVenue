@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { fetchPublicVenueDetail } from "@/src/venues/route";
 import { PublicVenueDetailResponseDto, VenueType, BookingType } from "@/src/venues/types";
+import { apiFetch } from "@/src/lib/api";
 
 interface VenueDetailProps {
   id: string;
@@ -56,6 +57,41 @@ export default function VenueDetail({ id }: VenueDetailProps) {
   const [wishlist, setWishlistState] = useState<string[]>([]);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
+
+  // Availability States
+  const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+
+  // Check availability when date changes
+  useEffect(() => {
+    if (!selectedDate) {
+      setIsAvailable(null);
+      return;
+    }
+
+    const checkDateAvailability = async () => {
+      setCheckingAvailability(true);
+      try {
+        const formatDate = (dateObj: Date) => {
+          const year = dateObj.getFullYear();
+          const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+          const day = String(dateObj.getDate()).padStart(2, "0");
+          return `${year}-${month}-${day}`;
+        };
+
+        const dateStr = formatDate(selectedDate);
+        const res = await apiFetch<{ available: boolean }>(`/venues/public/${id}/check-availability?date=${dateStr}`);
+        setIsAvailable(res.available);
+      } catch (err) {
+        // Fallback to available if check fails
+        setIsAvailable(true);
+      } finally {
+        setCheckingAvailability(false);
+      }
+    };
+
+    checkDateAvailability();
+  }, [selectedDate, id]);
 
   // Load wishlist & fetch venue details
   useEffect(() => {
@@ -528,12 +564,23 @@ export default function VenueDetail({ id }: VenueDetailProps) {
                 </div>
 
                 {/* Submit Booking Button */}
-                <Button
-                  onClick={handleBookNow}
-                  className="w-full bg-amber-cta text-white hover:bg-amber-hover py-3.5 h-auto text-sm font-bold shadow-md shadow-amber-cta/30 rounded-xl cursor-pointer"
-                >
-                  Book Now
-                </Button>
+                {checkingAvailability ? (
+                  <Button disabled className="w-full bg-neutral-light text-neutral-muted py-3.5 h-auto text-sm font-bold rounded-xl flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-[#0D7377]" />
+                    Checking Availability...
+                  </Button>
+                ) : isAvailable === false ? (
+                  <div className="w-full bg-red-50 border border-red-200 text-red-600 py-3.5 px-4 rounded-xl text-center font-bold text-sm">
+                    Already Booked
+                  </div>
+                ) : (
+                  <Button
+                    onClick={handleBookNow}
+                    className="w-full bg-amber-cta text-white hover:bg-amber-hover py-3.5 h-auto text-sm font-bold shadow-md shadow-amber-cta/30 rounded-xl cursor-pointer"
+                  >
+                    Book Now
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -548,10 +595,19 @@ export default function VenueDetail({ id }: VenueDetailProps) {
             </span>
           </div>
 
-          <Sheet>
-            <SheetTrigger className="bg-amber-cta text-white hover:bg-amber-hover px-6 h-10 font-bold rounded-xl cursor-pointer flex items-center justify-center">
-              Configure & Book
-            </SheetTrigger>
+          {checkingAvailability ? (
+            <Button disabled className="bg-neutral-light text-neutral-muted px-6 h-10 font-bold rounded-xl flex items-center gap-1.5">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking...
+            </Button>
+          ) : isAvailable === false ? (
+            <div className="bg-red-50 border border-red-200 text-red-600 px-6 h-10 flex items-center justify-center font-bold rounded-xl text-xs">
+              Already Booked
+            </div>
+          ) : (
+            <Sheet>
+              <SheetTrigger className="bg-amber-cta text-white hover:bg-amber-hover px-6 h-10 font-bold rounded-xl cursor-pointer flex items-center justify-center">
+                Configure & Book
+              </SheetTrigger>
             <SheetContent side="bottom" className="bg-white rounded-t-3xl p-6 overflow-y-auto max-h-[85vh]">
               <SheetHeader className="pb-4 border-b border-neutral-light flex flex-row justify-between items-center">
                 <SheetTitle className="font-serif font-bold text-lg text-neutral-dark">Reserve Venue</SheetTitle>
@@ -621,12 +677,24 @@ export default function VenueDetail({ id }: VenueDetailProps) {
               </div>
 
               <div className="pt-4 border-t border-neutral-light flex gap-3">
-                <Button onClick={handleBookNow} className="flex-1 bg-amber-cta text-white hover:bg-amber-hover rounded-xl py-3.5 h-auto text-sm font-bold shadow-md shadow-amber-cta/30">
-                  Book Now
-                </Button>
+                {checkingAvailability ? (
+                  <Button disabled className="flex-1 bg-neutral-light text-neutral-muted py-3.5 h-auto text-sm font-bold rounded-xl flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-[#0D7377]" />
+                    Checking...
+                  </Button>
+                ) : (isAvailable as any) === false ? (
+                  <div className="flex-1 bg-red-50 border border-red-200 text-red-600 py-3.5 px-4 rounded-xl text-center font-bold text-sm">
+                    Already Booked
+                  </div>
+                ) : (
+                  <Button onClick={handleBookNow} className="flex-1 bg-amber-cta text-white hover:bg-amber-hover rounded-xl py-3.5 h-auto text-sm font-bold shadow-md shadow-amber-cta/30">
+                    Book Now
+                  </Button>
+                )}
               </div>
             </SheetContent>
           </Sheet>
+          )}
         </div>
 
         {/* LIGHTBOX GALLERY MODAL */}

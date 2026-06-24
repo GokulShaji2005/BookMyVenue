@@ -176,5 +176,25 @@ export class UsersService {
     };
   }
 
-
+  /**
+   * Get the customer profile details.
+   */
+  async getCustomerProfile(userId: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+    const profile = await this.customerProfileRepo.findOne({ where: { userId } });
+    return {
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        isProfileCompleted: user.isProfileCompleted,
+      },
+      profile: profile || null,
+    };
+  }
 }
