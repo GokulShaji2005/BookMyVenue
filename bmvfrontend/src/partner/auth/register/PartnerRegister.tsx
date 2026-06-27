@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { sendOtp, verifyOtp } from "@/src/common/auth/route";
 import { register } from "@/src/common/auth/route";
+import { LogoTicket } from "@/components/Logo";
 import { email } from "zod";
 export default function PartnerRegister() {
   const router = useRouter();
@@ -183,10 +184,12 @@ export default function PartnerRegister() {
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md mb-6">
         <div className="text-center">
-          <Link href="/" className="inline-block font-serif text-3xl font-bold tracking-tight text-teal-primary mb-3">
-            Book<span className="text-amber-cta">My</span>Venue
-          </Link>
-          <span className="text-[10px] uppercase font-bold tracking-wider bg-neutral-dark text-white px-2 py-0.5 rounded-md ml-1.5 align-middle">Partner</span>
+          <div className="flex justify-center items-center mb-3 gap-2">
+            <Link href="/" className="inline-block">
+              <LogoTicket />
+            </Link>
+            <span className="text-[10px] uppercase font-bold tracking-wider bg-neutral-dark text-white px-2 py-0.5 rounded-md self-center">Partner</span>
+          </div>
           <h2 className="text-2xl font-serif font-bold text-neutral-dark mt-3">Register Venue Business</h2>
           <p className="mt-1 text-xs text-neutral-muted">
             Partner with us to capture local inquiries and bookings.

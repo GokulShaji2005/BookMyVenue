@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Eye, EyeOff, Mail, Lock, ShieldAlert } from "lucide-react";
 import Login from "@/src/customer/auth/login/page";
 import { login } from "@/src/common/auth/route";
+import { LogoTicket } from "@/components/Logo";
 export default function PartnerLogin() {
   const router = useRouter();
 
@@ -70,10 +71,12 @@ export default function PartnerLogin() {
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="text-center">
-          <Link href="/" className="inline-block font-serif text-3xl font-bold tracking-tight text-teal-primary mb-3">
-            Book<span className="text-amber-cta">My</span>Venue
-          </Link>
-          <span className="text-[10px] uppercase font-bold tracking-wider bg-neutral-dark text-white px-2 py-0.5 rounded-md ml-1.5 align-middle">Partner</span>
+          <div className="flex justify-center items-center mb-3 gap-2">
+            <Link href="/" className="inline-block">
+              <LogoTicket />
+            </Link>
+            <span className="text-[10px] uppercase font-bold tracking-wider bg-neutral-dark text-white px-2 py-0.5 rounded-md self-center">Partner</span>
+          </div>
           <h2 className="text-2xl font-serif font-bold text-neutral-dark mt-3">Welcome Back, Partner</h2>
           <p className="mt-1.5 text-xs text-neutral-muted">
             Access your venue management panel, check calendar slots, and view payouts.

@@ -23,6 +23,7 @@ import {
   PartyPopper
 } from "lucide-react";
 import { sendOtp, verifyOtp, register } from "../../../common/auth/route"
+import { LogoTicket } from "@/components/Logo";
 export interface VerifyOtpResponse {
   verified: boolean;
   phone: string;
@@ -173,9 +174,11 @@ export default function Register() {
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md mb-6">
         <div className="text-center">
-          <Link href="/" className="inline-block font-serif text-3xl font-bold tracking-tight text-teal-primary mb-3">
-            Book<span className="text-amber-cta">My</span>Venue
-          </Link>
+          <div className="flex justify-center items-center mb-3">
+            <Link href="/" className="inline-block">
+              <LogoTicket />
+            </Link>
+          </div>
           <h2 className="text-2xl font-serif font-bold text-neutral-dark">Create Account</h2>
           <p className="mt-1 text-xs text-neutral-muted">
             Join BookMyVenue to discover and book premium venues.

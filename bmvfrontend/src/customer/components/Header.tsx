@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { getSession, clearSession, UserSession } from "@/src/lib/authStore";
 import { Button } from "@/components/ui/button";
 import { User, LogOut, Menu, X, Heart, Calendar } from "lucide-react";
+import { LogoTicket } from "@/components/Logo";
 
 export default function Header() {
   const [session, setSessionState] = useState<UserSession | null>(null);
@@ -34,10 +35,8 @@ export default function Header() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo */}
         <div className="flex items-center gap-6">
-          <Link href="/" className="flex items-center space-x-2">
-            <span className="font-serif text-2xl font-bold tracking-tight text-teal-primary">
-              Book<span className="text-amber-cta">My</span>Venue
-            </span>
+          <Link href="/" className="flex items-center">
+            <LogoTicket />
           </Link>
           <nav className="hidden md:flex items-center gap-6">
             {navLinks.map((link) => (

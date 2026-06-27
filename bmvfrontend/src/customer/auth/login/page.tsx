@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Eye, EyeOff, Mail, Lock, ShieldAlert } from "lucide-react";
 import { login } from "../../../common/auth/route";
+import { LogoTicket } from "@/components/Logo";
 
 export default function Login() {
   const router = useRouter();
@@ -92,9 +93,11 @@ export default function Login() {
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="text-center">
-          <Link href="/" className="inline-block font-serif text-3xl font-bold tracking-tight text-teal-primary mb-3">
-            Book<span className="text-amber-cta">My</span>Venue
-          </Link>
+          <div className="flex justify-center items-center mb-3">
+            <Link href="/" className="inline-block">
+              <LogoTicket />
+            </Link>
+          </div>
           <h2 className="text-2xl font-serif font-bold text-neutral-dark">Welcome back</h2>
           <p className="mt-1.5 text-xs text-neutral-muted">
             Login to your customer account to manage bookings and wishlists.

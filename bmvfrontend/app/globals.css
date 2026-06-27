@@ -14,7 +14,7 @@
   --popover: #FFFFFF;
   --popover-foreground: #1A1A19;
   
-  --primary: #0D7377;
+  --primary: #DC2626;
   --primary-foreground: #FAFAF8;
   
   --secondary: #F0F0EC;
@@ -23,21 +23,21 @@
   --muted: #F0F0EC;
   --muted-foreground: #70706e;
   
-  --accent: #E6F1F1;
-  --accent-foreground: #0D7377;
+  --accent: #FFEBEB;
+  --accent-foreground: #DC2626;
   
   --destructive: #EF4444;
   --border: #E2E2DE;
   --input: #E2E2DE;
-  --ring: #0D7377;
+  --ring: #DC2626;
   
-  --primary-teal: #0D7377;
-  --primary-teal-hover: #0a5b5e;
-  --primary-teal-light: #e6f1f1;
+  --primary-teal: #DC2626;
+  --primary-teal-hover: #B91C1C;
+  --primary-teal-light: #FFEBEB;
 
-  --cta-amber: #F4A261;
-  --cta-amber-hover: #e7904c;
-  --cta-amber-light: #fef5ed;
+  --cta-amber: #DC2626;
+  --cta-amber-hover: #B91C1C;
+  --cta-amber-light: #FFEBEB;
 
   --neutral-dark: #232321;
   --neutral-muted: #70706e;
@@ -47,12 +47,12 @@
   
   --sidebar: #FFFFFF;
   --sidebar-foreground: #1A1A19;
-  --sidebar-primary: #0D7377;
+  --sidebar-primary: #DC2626;
   --sidebar-primary-foreground: #FAFAF8;
-  --sidebar-accent: #E6F1F1;
-  --sidebar-accent-foreground: #0D7377;
+  --sidebar-accent: #FFEBEB;
+  --sidebar-accent-foreground: #DC2626;
   --sidebar-border: #E2E2DE;
-  --sidebar-ring: #0D7377;
+  --sidebar-ring: #DC2626;
 }
 
 @theme {
@@ -317,4 +317,60 @@ body {
   html {
     @apply font-sans;
   }
+}
+
+/* Global overrides for hardcoded legacy hex color classes to maintain theme consistency */
+.text-\[\#0D7377\] {
+  color: var(--primary-teal) !important;
+}
+.bg-\[\#0D7377\] {
+  background-color: var(--primary-teal) !important;
+}
+.border-\[\#0D7377\] {
+  border-color: var(--primary-teal) !important;
+}
+.ring-\[\#0D7377\] {
+  --tw-ring-color: var(--primary-teal) !important;
+}
+.shadow-\[\#0D7377\]\/10 {
+  --tw-shadow-color: color-mix(in srgb, var(--primary-teal) 10%, transparent) !important;
+}
+.shadow-\[\#0D7377\]\/20 {
+  --tw-shadow-color: color-mix(in srgb, var(--primary-teal) 20%, transparent) !important;
+}
+.shadow-\[\#0D7377\]\/25 {
+  --tw-shadow-color: color-mix(in srgb, var(--primary-teal) 25%, transparent) !important;
+}
+.shadow-\[\#0D7377\]\/30 {
+  --tw-shadow-color: color-mix(in srgb, var(--primary-teal) 30%, transparent) !important;
+}
+
+.bg-\[\#E6F1F1\] {
+  background-color: var(--primary-teal-light) !important;
+}
+.text-\[\#E6F1F1\] {
+  color: var(--primary-teal-light) !important;
+}
+.border-\[\#E6F1F1\] {
+  border-color: var(--primary-teal-light) !important;
+}
+
+.text-\[\#0a5b5e\] {
+  color: var(--primary-teal-hover) !important;
+}
+.bg-\[\#0a5b5e\] {
+  background-color: var(--primary-teal-hover) !important;
+}
+.hover\:bg-\[\#0a5b5e\]:hover {
+  background-color: var(--primary-teal-hover) !important;
+}
+
+.text-\[\#F4A261\] {
+  color: var(--cta-amber) !important;
+}
+.bg-\[\#F4A261\] {
+  background-color: var(--cta-amber) !important;
+}
+.border-\[\#F4A261\] {
+  border-color: var(--cta-amber) !important;
 }

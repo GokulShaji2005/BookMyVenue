@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { Building2 } from "lucide-react";
+import { LogoTicket } from "@/components/Logo";
 
 export default function Footer() {
   return (
@@ -11,10 +12,8 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Logo and Tagline */}
           <div className="space-y-4 col-span-1 md:col-span-1">
-            <Link href="/" className="flex items-center space-x-2">
-              <span className="font-serif text-2xl font-bold tracking-tight text-white">
-                Book<span className="text-amber-cta">My</span>Venue
-              </span>
+            <Link href="/" className="flex items-center">
+              <LogoTicket variant="dark" showTagline />
             </Link>
             <p className="text-sm text-neutral-muted leading-relaxed">
               Simplifying event planning. Find, compare, and book the perfect venue for your next wedding, meeting, or celebration.

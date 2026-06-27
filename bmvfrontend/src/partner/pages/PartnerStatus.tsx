@@ -29,6 +29,7 @@ import {
   BadgeCheck,
   Info,
 } from "lucide-react";
+import { LogoTicket } from "@/components/Logo";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -425,8 +426,8 @@ export default function PartnerStatus() {
       {/* Header */}
       <header className="bg-white border-b border-neutral-light h-16 flex items-center justify-between px-6 shadow-xs sticky top-0 z-40">
         <div className="flex items-center gap-3">
-          <Link href="/" className="font-serif text-2xl font-bold text-teal-primary">
-            Book<span className="text-amber-cta">My</span>Venue
+          <Link href="/" className="inline-block">
+            <LogoTicket />
           </Link>
           <span className="text-[9px] uppercase font-bold tracking-wider bg-neutral-dark text-white px-2 py-0.5 rounded-md">
             Partner Portal

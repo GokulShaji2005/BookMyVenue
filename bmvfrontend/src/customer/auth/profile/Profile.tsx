@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { getSession, setSession, UserSession } from "@/src/lib/authStore";
 import { apiFetch } from "@/src/lib/api";
+import { LogoTicket } from "@/components/Logo";
 
 // Define validation schema using Zod
 const onboardingSchema = z.object({
@@ -450,9 +451,11 @@ export default function Profile() {
 
           <div className="sm:mx-auto sm:w-full sm:max-w-xl relative z-10">
             <div className="text-center mb-8">
-              <Link href="/" className="inline-block font-serif text-3xl font-bold tracking-tight text-[#0D7377] mb-3">
-                Book<span className="text-[#F4A261]">My</span>Venue
-              </Link>
+              <div className="flex justify-center items-center mb-3">
+                <Link href="/" className="inline-block">
+                  <LogoTicket />
+                </Link>
+              </div>
               <div className="flex items-center justify-center gap-2 mb-2">
                 <div className="h-9 w-9 rounded-full bg-[#E6F1F1] flex items-center justify-center text-[#0D7377] animate-bounce">
                   <MapPin className="h-5 w-5" />

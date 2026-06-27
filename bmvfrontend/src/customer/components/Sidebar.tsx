@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { clearSession } from "@/src/lib/authStore";
+import { LogoIcon, LogoTicket } from "@/components/Logo";
 
 interface SidebarContentProps {
   collapsed: boolean;
@@ -80,15 +81,12 @@ function SidebarContent({ collapsed, onClose }: SidebarContentProps) {
           collapsed && "justify-center px-2"
         )}
       >
-        <div className="h-8 w-8 rounded-xl bg-[#0D7377] flex items-center justify-center shrink-0">
-          <Building className="h-4 w-4 text-white" />
-        </div>
-        {!collapsed && (
-          <div className="min-w-0">
-            <span className="font-serif text-base font-bold text-[#0D7377] leading-none block">
-              Book<span className="text-[#F4A261]">My</span>Venue
-            </span>
-            <span className="text-[9px] uppercase font-bold tracking-wider text-[#70706e] block mt-0.5">
+        {collapsed ? (
+          <LogoIcon className="w-8 h-8 shrink-0" />
+        ) : (
+          <div className="min-w-0 flex flex-col">
+            <LogoTicket iconClassName="w-8 h-8" textClassName="[&_span]:text-sm" />
+            <span className="text-[9px] uppercase font-bold tracking-wider text-[#70706e] block mt-0.5 pl-0.5">
               Customer Hub
             </span>
           </div>
